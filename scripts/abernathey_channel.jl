@@ -162,8 +162,8 @@ function build_model(grid, Δt₀, parameters)
 
     # closure (moderately elevating scalar visc/diff)
 
-    κh = 5e-5 # [m²/s] horizontal diffusivity
-    νh = 500  # [m²/s] horizontal viscocity
+    κh = 1 #5e-5 # [m²/s] horizontal diffusivity
+    νh = 100 #500  # [m²/s] horizontal viscocity
     κz = 5e-5 # [m²/s] vertical diffusivity
     νz = 3e-3 # [m²/s] vertical viscocity
 
