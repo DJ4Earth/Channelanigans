@@ -26,7 +26,7 @@ using Enzyme
 
 Oceananigans.defaults.FloatType = Float64
 
-graph_directory = "run_abernathy_model_ad_spinup1000_100steps/"
+graph_directory = "run_abernathy_model_ad_spinup4000000_8100steps_bufferedWENO/"
 #graph_directory = "run_abernathy_model_ad_spinup40000000_8100steps/"
 
 #
@@ -190,9 +190,9 @@ function build_model(grid, Δt₀, parameters)
 
     @allowscalar model = HydrostaticFreeSurfaceModel(
         grid = grid,
-        free_surface = SplitExplicitFreeSurface(substeps=10),
-        momentum_advection = WENO(order=3),
-        tracer_advection = WENO(order=3),
+        free_surface = SplitExplicitFreeSurface(substeps=50),
+        momentum_advection = WENO(order=5, buffer_scheme=Centered()),
+        tracer_advection = WENO(order=5, buffer_scheme=Centered()),
         buoyancy = SeawaterBuoyancy(equation_of_state=LinearEquationOfState(Oceananigans.defaults.FloatType)),
         coriolis = coriolis,
         closure = (horizontal_closure, vertical_closure, biharmonic_closure),
@@ -250,7 +250,7 @@ end
 
 function spinup_loop!(model)
     Δt = model.clock.last_Δt
-    @trace mincut = true track_numbers = false for i = 1:1000
+    @trace mincut = true track_numbers = false for i = 1:4000000
         time_step!(model, Δt)
     end
     return nothing
@@ -280,7 +280,7 @@ end
 
 function loop!(model)
     Δt = model.clock.last_Δt
-    @trace mincut = true checkpointing = true track_numbers = false for i = 1:100
+    @trace mincut = true checkpointing = true track_numbers = false for i = 1:8100
         time_step!(model, Δt)
     end
     return nothing
