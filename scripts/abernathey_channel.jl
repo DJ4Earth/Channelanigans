@@ -34,8 +34,8 @@ graph_directory = "run_abernathy_model_ad_spinup1000_100steps/"
 #
 
 # number of grid points
-const Nx = 80  # LowRes: 48
-const Ny = 160 # LowRes: 96
+const Nx = 100  # LowRes: 48
+const Ny = 200 # LowRes: 96
 const Nz = 32
 
 const x_midpoint = Int(Nx / 2) + 1
@@ -280,7 +280,7 @@ end
 
 function loop!(model)
     Δt = model.clock.last_Δt
-    @trace mincut = true checkpointing = true track_numbers = false for i = 1:100
+    @trace mincut = true checkpointing = true track_numbers = false for i = 1:10000
         time_step!(model, Δt)
     end
     return nothing
