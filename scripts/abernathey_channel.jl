@@ -109,7 +109,7 @@ function make_grid(architecture, Nx, Ny, Nz, z_faces)
 
     # Make into a ridge array:
     ridge = Field{Center, Center, Nothing}(underlying_grid)
-    set!(ridge, wall_function)
+    @allowscalar set!(ridge, wall_function)
 
     grid = ImmersedBoundaryGrid(underlying_grid, GridFittedBottom(ridge))
     return grid
@@ -398,7 +398,7 @@ rspinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress
 spinup_toc = time() - tic
 @show spinup_toc
 
-jldsave(filename; Nx, Ny, Nz,
+jldsave(filename, IOStream; Nx, Ny, Nz,
                   bottom_height=convert(Array, interior(bottom_height)),
                   T_init=convert(Array, interior(model.tracers.T)),
                   S_init=convert(Array, interior(model.tracers.S)),
@@ -423,7 +423,7 @@ run_toc = time() - tic
 
 filename = graph_directory * "data_final.jld2"
 
-jldsave(filename; Nx, Ny, Nz,
+jldsave(filename, IOStream; Nx, Ny, Nz,
                   T_final=convert(Array, interior(model.tracers.T)),
                   S_final=convert(Array, interior(model.tracers.S)),
                   e_final=convert(Array, interior(model.tracers.e)),
