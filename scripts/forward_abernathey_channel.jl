@@ -35,15 +35,11 @@ const Lz = sum(Δz_center)
 z_faces = vcat([-Lz], -Lz .+ cumsum(Δz_center))
 z_faces[Nz+1] = 0
 
-Δz = z_faces[2:end] - z_faces[1:end-1]
-
-Δz = reshape(Δz, 1, :)
-
 # Coriolis variables:
 const f = -1e-4
 const β = 1e-11
 
-halo_size = 6 # 3 for non-immersed grid
+halo_size = 7 # 3 for non-immersed grid
 
 # Other model parameters:
 const α = 2e-4     # [K⁻¹] thermal expansion coefficient
@@ -80,15 +76,15 @@ function wall_function(x, y)
     return (Lz+1) * zonal * gap - Lz
 end
 
-function make_grid(architecture, Nx, Ny, Nz, z_faces)
+function make_grid(arch, Nx, Ny, Nz, z_faces)
 
-    underlying_grid = RectilinearGrid(architecture,
-        topology = (Periodic, Bounded, Bounded),
-        size = (Nx, Ny, Nz),
-        halo = (halo_size, halo_size, halo_size),
-        x = (0, Lx),
-        y = (0, Ly),
-        z = z_faces)
+    underlying_grid = RectilinearGrid(arch,
+                                      topology = (Periodic, Bounded, Bounded),
+                                      size = (Nx, Ny, Nz),
+                                      halo = (halo_size, halo_size, halo_size),
+                                      x = (0, Lx),
+                                      y = (0, Ly),
+                                      z = z_faces)
 
     # Make into a ridge array:
     ridge = Field{Center, Center, Nothing}(underlying_grid)
@@ -104,21 +100,23 @@ end
 
 function build_model(grid, Δt₀, parameters)
 
-    temperature_flux_bc = FluxBoundaryCondition(Field{Center, Center, Nothing}(grid))
+    @inline   u_drag(i, j, grid, clock, model_fields, p) = @inbounds -p.μ * p.Lz * model_fields.u[i, j, 1]
+    @inline   v_drag(i, j, grid, clock, model_fields, p) = @inbounds -p.μ * p.Lz * model_fields.v[i, j, 1]
+    @inline u_stress(i, j, grid, clock, model_fields, p) = -p.τ * sin(π * ynode(j, grid, Center()) / p.Ly)
+    
+    @inline function T_flux(i, j, grid, clock, model_fields, p) 
+        y = ynode(j, grid, Center())
+        ifelse(y < p.y_shutoff, p.Qᵀ * cos(3π * y / p.Ly), 0.0)
+    end
 
-    u_stress_bc = FluxBoundaryCondition(Field{Face, Center, Nothing}(grid))
-    v_stress_bc = FluxBoundaryCondition(Field{Center, Face, Nothing}(grid))
+    u_drag_bc   = FluxBoundaryCondition(u_drag;   discrete_form=true, parameters)
+    v_drag_bc   = FluxBoundaryCondition(v_drag;   discrete_form=true, parameters)
+    u_stress_bc = FluxBoundaryCondition(u_stress; discrete_form=true, parameters)
+    T_flux_bc   = FluxBoundaryCondition(T_flux;   discrete_form=true, parameters)
 
-    @inline u_drag(i, j, grid, clock, model_fields, p) = @inbounds -p.μ * p.Lz * model_fields.u[i, j, 1]
-    @inline v_drag(i, j, grid, clock, model_fields, p) = @inbounds -p.μ * p.Lz * model_fields.v[i, j, 1]
-
-    u_drag_bc = FluxBoundaryCondition(u_drag; discrete_form=true, parameters)
-    v_drag_bc = FluxBoundaryCondition(v_drag; discrete_form=true, parameters)
-
-    T_bcs = FieldBoundaryConditions(top=temperature_flux_bc)
-
+    T_bcs = FieldBoundaryConditions(top=T_flux_bc)
     u_bcs = FieldBoundaryConditions(top=u_stress_bc, bottom=u_drag_bc)
-    v_bcs = FieldBoundaryConditions(top=v_stress_bc, bottom=v_drag_bc)
+    v_bcs = FieldBoundaryConditions(bottom=v_drag_bc)
 
     #####
     ##### Coriolis
@@ -129,6 +127,7 @@ function build_model(grid, Δt₀, parameters)
     #####
     ##### Forcing and initial condition
     #####
+
     @inline initial_temperature(z, p) = p.ΔT * (exp(z / p.h) - exp(-p.Lz / p.h)) / (1 - exp(-p.Lz / p.h))
     @inline mask(y, p)                = max(0.0, y - p.y_sponge) / (Ly - p.y_sponge)
 
@@ -147,37 +146,25 @@ function build_model(grid, Δt₀, parameters)
     # closure (moderately elevating scalar visc/diff)
 
     νh = 1e9  # [m²/s] horizontal viscocity
-    κz = 5e-5 # [m²/s] vertical diffusivity
-    νz = 3e-3 # [m²/s] vertical viscocity
-
-    κz_field = Field{Center, Center, Center}(grid)
-    κz_array = zeros(Nx, Ny, Nz)
-
-    κz_add = 5e-5  # m² / s at surface
-    decay_scale = 5   # layers
-    for k in 1:Nz
-        taper = exp(- (k-1) / decay_scale)
-        κz_array[:,:,k] .= κz + κz_add * taper
-    end
-    @show κz_array[1:2,20,:]
-
-    set!(κz_field, κz_array)
 
     horizontal_closure = HorizontalScalarBiharmonicDiffusivity(ν = νh)
-    vertical_closure = VerticalScalarDiffusivity(ν = νz, κ = κz_field)
+    vertical_closure = ConvectiveAdjustmentVerticalDiffusivity(convective_κz = 0.1, 
+                                                               convective_νz = 0.01,
+                                                               background_κz = 1e-5,
+                                                               background_νz = 1e-4)
 
     @info "Building a model..."
 
     @allowscalar model = HydrostaticFreeSurfaceModel(
         grid = grid,
         free_surface = SplitExplicitFreeSurface(grid, substeps=30),
-        momentum_advection = WENO(order=7),
+        momentum_advection = WENOVectorInvariant(),
         tracer_advection = WENO(order=7),
-        buoyancy = SeawaterBuoyancy(equation_of_state=LinearEquationOfState(Oceananigans.defaults.FloatType)),
+        buoyancy = SeawaterBuoyancy(equation_of_state=LinearEquationOfState(Oceananigans.defaults.FloatType), constant_salinity=35),
         coriolis = coriolis,
-        closure = (horizontal_closure, vertical_closure),
-        tracers = (:T, :S, :e),
-        boundary_conditions = (T = T_bcs, u = u_bcs, v = v_bcs),
+        closure = vertical_closure,
+        tracers = :T,
+        boundary_conditions = (; T = T_bcs, u = u_bcs, v = v_bcs),
         forcing = (T = FT,)
     )
 
@@ -190,38 +177,14 @@ end
 ##### Special initial and boundary conditions
 #####
 
-# Temperature flux:
-function T_flux_init(grid, p)
-    @inline temp_flux_function(x, y) = ifelse(y < p.y_shutoff, p.Qᵀ * cos(3π * y / p.Ly), 0.0)
-    temp_flux = Field{Center, Center, Nothing}(grid)
-    @allowscalar set!(temp_flux, temp_flux_function)
-    return temp_flux
-end
-
-# wind stress:
-function u_wind_stress_init(grid, p)
-    @inline u_stress(x, y) = -p.τ * sin(π * y / p.Ly)
-    wind_stress = Field{Face, Center, Nothing}(grid)
-    @allowscalar set!(wind_stress, u_stress)
-    return wind_stress
-end
-
-function v_wind_stress_init(grid, p)
-    wind_stress = Field{Center, Face, Nothing}(grid)
-    @allowscalar set!(wind_stress, 0)
-    return wind_stress
-end
-
 # resting initial condition
 function temperature_salinity_init(grid, parameters)
     # Adding some noise to temperature field:
     ε(σ) = σ * randn()
-    Tᵢ_function(x, y, z) = parameters.ΔT * (exp(z / parameters.h) - exp(-Lz / parameters.h)) / (1 - exp(-Lz / parameters.h)) + ε(1e-8)
+    Tᵢ_function(x, y, z) = parameters.ΔT * (exp(z / parameters.h) - exp(-Lz / parameters.h)) / (1 - exp(-Lz / parameters.h)) 
     Tᵢ = Field{Center, Center, Center}(grid)
-    Sᵢ = Field{Center, Center, Center}(grid)
     @allowscalar set!(Tᵢ, Tᵢ_function)
-    @allowscalar set!(Sᵢ, 35) # Initial Salinity
-    return Tᵢ, Sᵢ
+    return Tᵢ
 end
 
 #####
@@ -239,13 +202,9 @@ function spinup_loop!(model)
     return nothing
 end
 
-function spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, temp_flux)
+function spinup_reentrant_channel_model!(model, Tᵢ)
     # setting IC's and BC's:
-    set!(model.velocities.u.boundary_conditions.top.condition, u_wind_stress)
-    set!(model.velocities.v.boundary_conditions.top.condition, v_wind_stress)
     set!(model.tracers.T, Tᵢ)
-    set!(model.tracers.S, Sᵢ)
-    set!(model.tracers.T.boundary_conditions.top.condition, temp_flux)
 
     # Initialize the model
     model.clock.iteration = 0
@@ -268,19 +227,15 @@ architecture = GPU()
 Δt₀ = 10minutes 
 
 # Make the grid:
-grid          = make_grid(architecture, Nx, Ny, Nz, z_faces)
-model         = build_model(grid, Δt₀, parameters)
-T_flux        = T_flux_init(model.grid, parameters)
-u_wind_stress = u_wind_stress_init(model.grid, parameters)
-v_wind_stress = v_wind_stress_init(model.grid, parameters)
-Tᵢ, Sᵢ        = temperature_salinity_init(model.grid, parameters)
-mld           = Field{Center, Center, Nothing}(model.grid) # Not used for now
+grid   = make_grid(architecture, Nx, Ny, Nz, z_faces)
+model  = build_model(grid, Δt₀, parameters)
+Tᵢ     = temperature_salinity_init(model.grid, parameters)
 
 @info "Built $model."
 @info "Running the simulation..."
 
 # Spinup the model for a sufficient amount of time, save the T and S from this state:
 tic = time()
-spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux)
+spinup_reentrant_channel_model!(model, Tᵢ)
 spinup_toc = time() - tic
 @show spinup_toc
