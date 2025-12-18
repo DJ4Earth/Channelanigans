@@ -54,7 +54,7 @@ parameters = (
     Qᵀ = 10 / (ρ * cᵖ),          # temperature flux magnitude
     y_shutoff = 5 / 6 * Ly,      # shutoff location for buoyancy flux [m]
     τ = 0.2 / ρ,                 # surface kinematic wind stress [m² s⁻²]
-    μ = 1 / 30days,              # bottom drag damping time-scale [s⁻¹]
+    μ = 0.001,                   # bottom drag damping time-scale [s⁻¹]
     ΔB = 8 * α * g,              # surface vertical buoyancy gradient [s⁻²]
     ΔT = 8,                      # surface vertical temperature gradient
     H = Lz,                      # domain depth [m]
@@ -100,8 +100,8 @@ end
 
 function build_model(grid, Δt₀, parameters)
 
-    @inline   u_drag(i, j, grid, clock, model_fields, p) = @inbounds -p.μ * p.Lz * model_fields.u[i, j, 1]
-    @inline   v_drag(i, j, grid, clock, model_fields, p) = @inbounds -p.μ * p.Lz * model_fields.v[i, j, 1]
+    @inline   u_drag(i, j, grid, clock, model_fields, p) = @inbounds -p.μ * model_fields.u[i, j, 1]
+    @inline   v_drag(i, j, grid, clock, model_fields, p) = @inbounds -p.μ * model_fields.v[i, j, 1]
     @inline u_stress(i, j, grid, clock, model_fields, p) = -p.τ * sin(π * ynode(j, grid, Center()) / p.Ly)
     
     @inline function T_flux(i, j, grid, clock, model_fields, p) 
@@ -143,27 +143,23 @@ function build_model(grid, Δt₀, parameters)
     
     FT = Forcing(temperature_relaxation; discrete_form=true, parameters)
 
-    # closure (moderately elevating scalar visc/diff)
-
-    νh = 1e9  # [m²/s] horizontal viscocity
-
-    horizontal_closure = HorizontalScalarBiharmonicDiffusivity(ν = νh)
-    vertical_closure = ConvectiveAdjustmentVerticalDiffusivity(convective_κz = 0.1, 
-                                                               convective_νz = 0.01,
-                                                               background_κz = 1e-5,
-                                                               background_νz = 1e-4)
+    function default_ocean_closure(FT=Oceananigans.defaults.FloatType)
+        mixing_length = Oceananigans.TurbulenceClosures.TKEBasedVerticalDiffusivities.CATKEMixingLength(Cᵇ=0.01)
+        turbulent_kinetic_energy_equation = Oceananigans.TurbulenceClosures.TKEBasedVerticalDiffusivities.CATKEEquation(Cᵂϵ=1.0)
+        return CATKEVerticalDiffusivity(VerticallyImplicitTimeDiscretization(), FT; mixing_length, turbulent_kinetic_energy_equation)
+    end
 
     @info "Building a model..."
 
     @allowscalar model = HydrostaticFreeSurfaceModel(
         grid = grid,
         free_surface = SplitExplicitFreeSurface(grid, substeps=30),
-        momentum_advection = WENOVectorInvariant(),
+        momentum_advection = WENO(order=5),
         tracer_advection = WENO(order=7),
         buoyancy = SeawaterBuoyancy(equation_of_state=LinearEquationOfState(Oceananigans.defaults.FloatType), constant_salinity=35),
         coriolis = coriolis,
-        closure = vertical_closure,
-        tracers = :T,
+        closure = default_ocean_closure(),
+        tracers = (:T, :e),
         boundary_conditions = (; T = T_bcs, u = u_bcs, v = v_bcs),
         forcing = (T = FT,)
     )
