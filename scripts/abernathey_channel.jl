@@ -192,12 +192,11 @@ function build_model(grid, Δt₀, parameters)
         grid = grid,
         free_surface = SplitExplicitFreeSurface(substeps=10),
         momentum_advection = WENO(order=3),
-        tracer_advection = WENO(order=3),
+        tracer_advection = nothing,
         buoyancy = SeawaterBuoyancy(equation_of_state=LinearEquationOfState(Oceananigans.defaults.FloatType)),
-        coriolis = coriolis,
-        closure = (horizontal_closure, vertical_closure, biharmonic_closure),
+        coriolis = nothing,
+        closure = nothing,
         tracers = (:T, :S, :e),
-        boundary_conditions = (T = T_bcs, u = u_bcs, v = v_bcs),
         forcing = (T = FT,)
     )
 
@@ -212,9 +211,7 @@ end
 
 function spinup_loop!(model)
     Δt = model.clock.last_Δt
-    @trace mincut = true track_numbers = false for i = 1:1000
-        time_step!(model, Δt)
-    end
+    time_step!(model, Δt)
     return nothing
 end
 
