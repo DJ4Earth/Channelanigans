@@ -26,7 +26,7 @@ using Enzyme
 
 Oceananigans.defaults.FloatType = Float64
 
-graph_directory = "run_abernathy_model_ad_spinup4000000_8100steps_bufferedWENO/"
+graph_directory = "run_abernathy_model_ad_spinup1000_100steps_bufferedWENO/"
 #graph_directory = "run_abernathy_model_ad_spinup40000000_8100steps/"
 
 #
@@ -250,7 +250,7 @@ end
 
 function spinup_loop!(model)
     Δt = model.clock.last_Δt
-    @trace mincut = true track_numbers = false for i = 1:4000000
+    @trace mincut = true track_numbers = false for i = 1:1000
         time_step!(model, Δt)
     end
     return nothing
@@ -280,7 +280,7 @@ end
 
 function loop!(model)
     Δt = model.clock.last_Δt
-    @trace mincut = true checkpointing = true track_numbers = false for i = 1:8100
+    @trace mincut = true checkpointing = true track_numbers = false for i = 1:100
         time_step!(model, Δt)
     end
     return nothing
