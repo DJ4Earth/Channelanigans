@@ -121,45 +121,6 @@ end
 
 function build_model(grid, Δt₀, parameters)
 
-    temperature_flux_bc = FluxBoundaryCondition(Field{Center, Center, Nothing}(grid))
-
-    u_stress_bc = FluxBoundaryCondition(Field{Face, Center, Nothing}(grid))
-    v_stress_bc = FluxBoundaryCondition(Field{Center, Face, Nothing}(grid))
-
-    @inline u_drag(i, j, grid, clock, model_fields, p) = @inbounds -p.μ * p.Lz * model_fields.u[i, j, 1]
-    @inline v_drag(i, j, grid, clock, model_fields, p) = @inbounds -p.μ * p.Lz * model_fields.v[i, j, 1]
-
-    u_drag_bc = FluxBoundaryCondition(u_drag, discrete_form = true, parameters = parameters)
-    v_drag_bc = FluxBoundaryCondition(v_drag, discrete_form = true, parameters = parameters)
-
-    T_bcs = FieldBoundaryConditions(top = temperature_flux_bc)
-
-    u_bcs = FieldBoundaryConditions(top = u_stress_bc, bottom = u_drag_bc)
-    v_bcs = FieldBoundaryConditions(top = v_stress_bc, bottom = v_drag_bc)
-
-    #####
-    ##### Coriolis
-    #####
-    coriolis = BetaPlane(f₀ = f, β = β)
-
-    #####
-    ##### Forcing and initial condition
-    #####
-    @inline initial_temperature(z, p) = p.ΔT * (exp(z / p.h) - exp(-p.Lz / p.h)) / (1 - exp(-p.Lz / p.h))
-    @inline mask(y, p)                = max(0.0, y - p.y_sponge) / (Ly - p.y_sponge)
-
-    @inline function temperature_relaxation(i, j, k, grid, clock, model_fields, p)
-        timescale = p.λt
-        y = ynode(j, grid, Center())
-        z = znode(k, grid, Center())
-        target_T = initial_temperature(z, p)
-        T = @inbounds model_fields.T[i, j, k]
-    
-        return -1 / timescale * mask(y, p) * (T - target_T)
-    end
-    
-    FT = Forcing(temperature_relaxation, discrete_form = true, parameters = parameters)
-
     # closure (moderately elevating scalar visc/diff)
 
     κh = 5e-5 # [m²/s] horizontal diffusivity
@@ -167,21 +128,8 @@ function build_model(grid, Δt₀, parameters)
     κz = 5e-5 # [m²/s] vertical diffusivity
     νz = 3e-3 # [m²/s] vertical viscocity
 
-    κz_field = Field{Center, Center, Center}(grid)
-    κz_array = zeros(Nx, Ny, Nz)
-
-    κz_add = 5e-5  # m² / s at surface
-    decay_scale = 5   # layers
-    for k in 1:Nz
-        taper = exp(- (k-1) / decay_scale)
-        κz_array[:,:,k] .= κz + κz_add * taper
-    end
-    @show κz_array[1:2,20,:]
-
-    set!(κz_field, κz_array)
-
     horizontal_closure = HorizontalScalarDiffusivity(ν = νh, κ = κh)
-    vertical_closure = VerticalScalarDiffusivity(ν = νz, κ = κz_field)
+    vertical_closure = VerticalScalarDiffusivity(ν = νz, κ = κz)
 
     biharmonic_closure = ScalarBiharmonicDiffusivity(HorizontalFormulation(), Oceananigans.defaults.FloatType;
                                                      ν = 1e11)
@@ -189,15 +137,14 @@ function build_model(grid, Δt₀, parameters)
     @info "Building a model..."
 
     @allowscalar model = HydrostaticFreeSurfaceModel(
-        grid = grid,
+        grid;
         free_surface = SplitExplicitFreeSurface(substeps=10),
         momentum_advection = WENO(order=3),
         tracer_advection = nothing,
         buoyancy = SeawaterBuoyancy(equation_of_state=LinearEquationOfState(Oceananigans.defaults.FloatType)),
         coriolis = nothing,
         closure = nothing,
-        tracers = (:T, :S, :e),
-        forcing = (T = FT,)
+        tracers = (:T, :S, :e)
     )
 
     model.clock.last_Δt = Δt₀
@@ -224,12 +171,16 @@ architecture = ReactantState()
 
 # Timestep size:
 Δt₀ = 2.5minutes 
+Δt  = 2.5minutes 
 
 # Make the grid:
 grid  = make_grid(architecture, Nx, Ny, Nz, z_faces)
 model = build_model(grid, Δt₀, parameters)
 
-@info "Built $model."
+using InteractiveUtils
+
+@show @which time_step!(model, Δt)
+
 
 # Trying zonal transport:
 
