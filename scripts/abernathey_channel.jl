@@ -157,8 +157,7 @@ end
 #####
 
 function spinup_loop!(model)
-    Δt = model.clock.last_Δt
-    time_step!(model, Δt)
+    compute_tendencies!(model, [])
     return nothing
 end
 
@@ -179,7 +178,9 @@ model = build_model(grid, Δt₀, parameters)
 
 using InteractiveUtils
 
-@show @which time_step!(model, Δt)
+using Oceananigans.TimeSteppers: update_state!, compute_tendencies!
+
+@show @which compute_tendencies!(model, [])
 
 
 # Trying zonal transport:
