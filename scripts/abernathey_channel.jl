@@ -159,10 +159,11 @@ end
 using InteractiveUtils
 
 using Oceananigans.TimeSteppers: update_state!, compute_tendencies!
-using Oceananigans.Utils: KernelParameters
+using Oceananigans.Utils: KernelParameters, launch!
 import Oceananigans.Models: interior_tendency_kernel_parameters
+using Oceananigans.Fields: immersed_boundary_condition
 using Oceananigans.Grids: get_active_cells_map
-using Oceananigans.Models.HydrostaticFreeSurfaceModels: compute_hydrostatic_free_surface_tendency_contributions!
+using Oceananigans.Models.HydrostaticFreeSurfaceModels: compute_hydrostatic_free_surface_tendency_contributions!, compute_hydrostatic_momentum_tendencies!, compute_hydrostatic_free_surface_Gc!
 
 function spinup_loop!(model)
     my_compute_tendencies!(model, [])
@@ -180,7 +181,44 @@ function my_compute_tendencies!(model, callbacks)
     active_cells_map = get_active_cells_map(model.grid, Val(:interior))
     kernel_parameters = interior_tendency_kernel_parameters(arch, grid)
 
-    compute_hydrostatic_free_surface_tendency_contributions!(model, kernel_parameters; active_cells_map)
+    my_compute_hydrostatic_free_surface_tendency_contributions!(model, kernel_parameters; active_cells_map)
+
+    return nothing
+end
+
+function my_compute_hydrostatic_free_surface_tendency_contributions!(model, kernel_parameters; active_cells_map=nothing)
+
+    arch = model.architecture
+    grid = model.grid
+
+    compute_hydrostatic_momentum_tendencies!(model, model.velocities, kernel_parameters; active_cells_map)
+
+    @inbounds c_tendency    = model.timestepper.Gⁿ[:T]
+    @inbounds c_advection   = model.advection[:T]
+    @inbounds c_forcing     = model.forcing[:T]
+    @inbounds c_immersed_bc = immersed_boundary_condition(model.tracers[:T])
+
+    args = tuple(Val(1),
+                    Val(:T),
+                    c_advection,
+                    model.closure,
+                    c_immersed_bc,
+                    model.buoyancy,
+                    model.biogeochemistry,
+                    model.velocities,
+                    model.free_surface,
+                    model.tracers,
+                    model.closure_fields,
+                    model.auxiliary_fields,
+                    model.clock,
+                    c_forcing)
+
+    launch!(arch, grid, kernel_parameters,
+            compute_hydrostatic_free_surface_Gc!,
+            c_tendency,
+            grid,
+            args;
+            active_cells_map)
 
     return nothing
 end
