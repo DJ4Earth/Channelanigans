@@ -163,7 +163,8 @@ using Oceananigans.Utils: KernelParameters, launch!
 import Oceananigans.Models: interior_tendency_kernel_parameters
 using Oceananigans.Fields: immersed_boundary_condition
 using Oceananigans.Grids: get_active_cells_map
-using Oceananigans.Models.HydrostaticFreeSurfaceModels: compute_hydrostatic_free_surface_tendency_contributions!, compute_hydrostatic_momentum_tendencies!, compute_hydrostatic_free_surface_Gc!
+using Oceananigans.Models.HydrostaticFreeSurfaceModels: compute_hydrostatic_free_surface_tendency_contributions!, compute_hydrostatic_momentum_tendencies!,
+                                                        compute_hydrostatic_free_surface_Gc!, compute_hydrostatic_free_surface_Gu!, compute_hydrostatic_free_surface_Gv!
 
 function spinup_loop!(model)
     my_compute_tendencies!(model, [])
@@ -181,44 +182,46 @@ function my_compute_tendencies!(model, callbacks)
     active_cells_map = get_active_cells_map(model.grid, Val(:interior))
     kernel_parameters = interior_tendency_kernel_parameters(arch, grid)
 
-    my_compute_hydrostatic_free_surface_tendency_contributions!(model, kernel_parameters; active_cells_map)
+    my_compute_hydrostatic_momentum_tendencies!(model, model.velocities, kernel_parameters; active_cells_map)
 
     return nothing
 end
 
-function my_compute_hydrostatic_free_surface_tendency_contributions!(model, kernel_parameters; active_cells_map=nothing)
+function my_compute_hydrostatic_momentum_tendencies!(model, velocities, kernel_parameters; active_cells_map=nothing)
 
-    arch = model.architecture
     grid = model.grid
+    arch = grid.architecture
 
-    compute_hydrostatic_momentum_tendencies!(model, model.velocities, kernel_parameters; active_cells_map)
+    u_immersed_bc = immersed_boundary_condition(velocities.u)
+    v_immersed_bc = immersed_boundary_condition(velocities.v)
 
-    @inbounds c_tendency    = model.timestepper.Gⁿ[:T]
-    @inbounds c_advection   = model.advection[:T]
-    @inbounds c_forcing     = model.forcing[:T]
-    @inbounds c_immersed_bc = immersed_boundary_condition(model.tracers[:T])
+    u_forcing = model.forcing.u
+    v_forcing = model.forcing.v
 
-    args = tuple(Val(1),
-                    Val(:T),
-                    c_advection,
-                    model.closure,
-                    c_immersed_bc,
-                    model.buoyancy,
-                    model.biogeochemistry,
-                    model.velocities,
-                    model.free_surface,
-                    model.tracers,
-                    model.closure_fields,
-                    model.auxiliary_fields,
-                    model.clock,
-                    c_forcing)
+    start_momentum_kernel_args = (model.advection.momentum,
+                                  model.coriolis,
+                                  model.closure)
+
+    end_momentum_kernel_args = (velocities,
+                                model.free_surface,
+                                model.tracers,
+                                model.buoyancy,
+                                model.closure_fields,
+                                model.pressure.pHY′,
+                                model.auxiliary_fields,
+                                model.vertical_coordinate,
+                                model.clock)
+
+    u_kernel_args = tuple(start_momentum_kernel_args..., u_immersed_bc, end_momentum_kernel_args..., u_forcing)
+    v_kernel_args = tuple(start_momentum_kernel_args..., v_immersed_bc, end_momentum_kernel_args..., v_forcing)
 
     launch!(arch, grid, kernel_parameters,
-            compute_hydrostatic_free_surface_Gc!,
-            c_tendency,
-            grid,
-            args;
-            active_cells_map)
+            compute_hydrostatic_free_surface_Gu!, model.timestepper.Gⁿ.u, grid,
+            u_kernel_args; active_cells_map)
+
+    launch!(arch, grid, kernel_parameters,
+            compute_hydrostatic_free_surface_Gv!, model.timestepper.Gⁿ.v, grid,
+            v_kernel_args; active_cells_map)
 
     return nothing
 end
