@@ -156,8 +156,32 @@ end
 ##### Spin up (because step cound is hardcoded we need separate functions for each loop...)
 #####
 
+using InteractiveUtils
+
+using Oceananigans.TimeSteppers: update_state!, compute_tendencies!
+using Oceananigans.Utils: KernelParameters
+import Oceananigans.Models: interior_tendency_kernel_parameters
+using Oceananigans.Grids: get_active_cells_map
+using Oceananigans.Models.HydrostaticFreeSurfaceModels: compute_hydrostatic_free_surface_tendency_contributions!
+
 function spinup_loop!(model)
-    compute_tendencies!(model, [])
+    my_compute_tendencies!(model, [])
+    return nothing
+end
+
+function my_compute_tendencies!(model, callbacks)
+
+    grid = model.grid
+    arch = Oceananigans.Architectures.architecture(grid)
+
+    # Calculate contributions to momentum and tracer tendencies from fluxes and volume terms in the
+    # interior of the domain. The active cells map restricts the computation to the active cells in the
+    # interior if the grid is _immersed_ and the `active_cells_map` kwarg is active
+    active_cells_map = get_active_cells_map(model.grid, Val(:interior))
+    kernel_parameters = interior_tendency_kernel_parameters(arch, grid)
+
+    compute_hydrostatic_free_surface_tendency_contributions!(model, kernel_parameters; active_cells_map)
+
     return nothing
 end
 
@@ -175,10 +199,6 @@ architecture = ReactantState()
 # Make the grid:
 grid  = make_grid(architecture, Nx, Ny, Nz, z_faces)
 model = build_model(grid, Δt₀, parameters)
-
-using InteractiveUtils
-
-using Oceananigans.TimeSteppers: update_state!, compute_tendencies!
 
 @show @which compute_tendencies!(model, [])
 
