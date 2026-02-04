@@ -35,7 +35,8 @@ using Oceananigans.TurbulenceClosures: compute_diffusivities!
 using Oceananigans.Utils: KernelParameters
 
 using Oceananigans.Models.HydrostaticFreeSurfaceModels: mask_immersed_model_fields!, diffusivity_kernel_parameters, update_vertical_velocities!, compute_momentum_tendencies!,
-                                                        compute_hydrostatic_momentum_tendencies!, complete_communication_and_compute_momentum_buffer!
+                                                        compute_hydrostatic_momentum_tendencies!, complete_communication_and_compute_momentum_buffer!,
+                                                        compute_hydrostatic_free_surface_Gu!, compute_hydrostatic_free_surface_Gv!
 
 using Oceananigans.Models.NonhydrostaticModels: update_hydrostatic_pressure!
 
@@ -45,6 +46,8 @@ using Oceananigans.Biogeochemistry: update_tendencies!
 using Oceananigans.TurbulenceClosures.TKEBasedVerticalDiffusivities: FlavorOfCATKE, FlavorOfTD
 
 using Oceananigans.Grids: get_active_cells_map
+
+using Oceananigans.Utils: launch!
 
 
 #Reactant.set_default_backend("cpu")
@@ -305,11 +308,48 @@ function my_compute_momentum_tendencies!(model, callbacks)
     grid = model.grid
     arch = grid.architecture
 
-    active_cells_map = get_active_cells_map(model.grid, Val(:interior))
-    kernel_parameters = interior_tendency_kernel_parameters(arch, grid)
+    kernel_parameters = :xyz
 
-    compute_hydrostatic_momentum_tendencies!(model, model.velocities, kernel_parameters; active_cells_map)
-    complete_communication_and_compute_momentum_buffer!(model, grid, arch)
+    my_compute_hydrostatic_momentum_tendencies!(model, model.velocities, kernel_parameters)
+
+    return nothing
+end
+
+function my_compute_hydrostatic_momentum_tendencies!(model, velocities, kernel_parameters; active_cells_map=nothing)
+
+    grid = model.grid
+    arch = grid.architecture
+
+    u_immersed_bc = immersed_boundary_condition(velocities.u)
+    v_immersed_bc = immersed_boundary_condition(velocities.v)
+
+    u_forcing = model.forcing.u
+    v_forcing = model.forcing.v
+
+    start_momentum_kernel_args = (model.advection.momentum,
+                                  model.coriolis,
+                                  model.closure)
+
+    end_momentum_kernel_args = (velocities,
+                                model.free_surface,
+                                model.tracers,
+                                model.buoyancy,
+                                model.closure_fields,
+                                model.pressure.pHY′,
+                                model.auxiliary_fields,
+                                model.vertical_coordinate,
+                                model.clock)
+
+    u_kernel_args = tuple(start_momentum_kernel_args..., u_immersed_bc, end_momentum_kernel_args..., u_forcing)
+    v_kernel_args = tuple(start_momentum_kernel_args..., v_immersed_bc, end_momentum_kernel_args..., v_forcing)
+
+    launch!(arch, grid, kernel_parameters,
+            compute_hydrostatic_free_surface_Gu!, model.timestepper.Gⁿ.u, grid,
+            u_kernel_args; active_cells_map)
+
+    launch!(arch, grid, kernel_parameters,
+            compute_hydrostatic_free_surface_Gv!, model.timestepper.Gⁿ.v, grid,
+            v_kernel_args; active_cells_map)
 
     return nothing
 end
