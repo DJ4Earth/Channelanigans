@@ -29,14 +29,22 @@ using Oceananigans.BoundaryConditions: fill_halo_regions!, update_boundary_condi
 using Oceananigans.BuoyancyFormulations: compute_buoyancy_gradients!
 using Oceananigans.Fields: compute!
 using Oceananigans.ImmersedBoundaries: mask_immersed_field!
-using Oceananigans.Models: update_model_field_time_series!, surface_kernel_parameters, volume_kernel_parameters
+using Oceananigans.Models: update_model_field_time_series!, surface_kernel_parameters, volume_kernel_parameters, interior_tendency_kernel_parameters
 using Oceananigans.Models.NonhydrostaticModels: update_hydrostatic_pressure!
 using Oceananigans.TurbulenceClosures: compute_diffusivities!
 using Oceananigans.Utils: KernelParameters
 
-using Oceananigans.Models.HydrostaticFreeSurfaceModels: mask_immersed_model_fields!, diffusivity_kernel_parameters, update_vertical_velocities!, compute_momentum_tendencies!
+using Oceananigans.Models.HydrostaticFreeSurfaceModels: mask_immersed_model_fields!, diffusivity_kernel_parameters, update_vertical_velocities!, compute_momentum_tendencies!,
+                                                        compute_hydrostatic_momentum_tendencies!, complete_communication_and_compute_momentum_buffer!
 
 using Oceananigans.Models.NonhydrostaticModels: update_hydrostatic_pressure!
+
+using Oceananigans: fields, prognostic_fields, TendencyCallsite, UpdateStateCallsite
+using Oceananigans.Fields: immersed_boundary_condition
+using Oceananigans.Biogeochemistry: update_tendencies!
+using Oceananigans.TurbulenceClosures.TKEBasedVerticalDiffusivities: FlavorOfCATKE, FlavorOfTD
+
+using Oceananigans.Grids: get_active_cells_map
 
 
 #Reactant.set_default_backend("cpu")
@@ -292,52 +300,22 @@ model         = build_model(grid, Δt, parameters)
 
 @info "Built $model."
 
-function my_update_state!(model, grid, callbacks)
+function my_compute_momentum_tendencies!(model, callbacks)
 
+    grid = model.grid
     arch = grid.architecture
 
-    @apply_regionally begin
-        mask_immersed_model_fields!(model)
-        update_model_field_time_series!(model, model.clock)
-        update_boundary_conditions!(fields(model), model)
-    end
+    active_cells_map = get_active_cells_map(model.grid, Val(:interior))
+    kernel_parameters = interior_tendency_kernel_parameters(arch, grid)
 
-    u = model.velocities.u
-    v = model.velocities.v
-    tracers = model.tracers
-
-    # Fill the halos of the prognostic fields. Note that the halos of the
-    # free-surface variables are filled after the barotropic step.
-    fill_halo_regions!((u, v),  model.clock, fields(model); async=true)
-    fill_halo_regions!(tracers, model.clock, fields(model); async=true)
-
-    # Compute diagnostic quantities
-    @apply_regionally begin
-        surface_params = surface_kernel_parameters(grid)
-        volume_params = volume_kernel_parameters(grid)
-        κ_params = diffusivity_kernel_parameters(grid)
-        compute_buoyancy_gradients!(model.buoyancy, grid, tracers, parameters=volume_params)
-        update_vertical_velocities!(model.velocities, grid, model, parameters=surface_params)
-        update_hydrostatic_pressure!(model.pressure.pHY′, arch, grid, model.buoyancy, model.tracers, parameters=surface_params)
-        compute_diffusivities!(model.closure_fields, model.closure, model, parameters=κ_params)
-    end
-
-    # Fill only local halos for diagnostic quantities since the parameters used
-    # above include regions inside the (horizontal) halos.
-    fill_halo_regions!(model.closure_fields; only_local_halos=true)
-    fill_halo_regions!(model.pressure.pHY′; only_local_halos=true)
-
-    [callback(model) for callback in callbacks if callback.callsite isa UpdateStateCallsite]
-
-    update_biogeochemical_state!(model.biogeochemistry, model)
-
-    @apply_regionally compute_momentum_tendencies!(model, callbacks)
+    compute_hydrostatic_momentum_tendencies!(model, model.velocities, kernel_parameters; active_cells_map)
+    complete_communication_and_compute_momentum_buffer!(model, grid, arch)
 
     return nothing
 end
 
-@show @which update_state!(model, model.grid, [])
+@show @which compute_momentum_tendencies!(model, [])
 
 @info "Compiling the model run..."
-rspinup_reentrant_channel_model! = @compile raise_first=true raise=true sync=true  my_update_state!(model, model.grid, [])
+rspinup_reentrant_channel_model! = @compile raise_first=true raise=true sync=true  my_compute_momentum_tendencies!(model, [])
             
