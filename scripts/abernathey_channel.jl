@@ -47,7 +47,8 @@ using Oceananigans.Biogeochemistry: update_tendencies!
 using Oceananigans.TurbulenceClosures.TKEBasedVerticalDiffusivities: FlavorOfCATKE, FlavorOfTD
 
 using Oceananigans.Advection: div_Uc, U_dot_∇u, U_dot_∇v, div_𝐯u,
-                              _advective_momentum_flux_Uu, _advective_momentum_flux_Vu, _advective_momentum_flux_Wu
+                              _advective_momentum_flux_Uu, _advective_momentum_flux_Vu, _advective_momentum_flux_Wu,
+                              advective_momentum_flux_Vu, _symmetric_interpolate_xᶠᵃᵃ, _biased_interpolate_yᵃᶠᵃ, bias
 
 using Oceananigans.Biogeochemistry: biogeochemical_transition, biogeochemical_drift_velocity
 using Oceananigans.Forcings: with_advective_forcing
@@ -59,7 +60,7 @@ using Oceananigans.TurbulenceClosures: ∂ⱼ_τ₁ⱼ, ∂ⱼ_τ₂ⱼ, ∇_dot
 using Oceananigans.Coriolis: x_f_cross_U
 
 using Oceananigans.Operators: ℑxᶠᵃᵃ, ℑyᵃᶜᵃ, Δx_qᶜᶠᶜ, Δx⁻¹ᶠᶜᶜ, δxᶠᵃᵃ, Δyᶜᶜᶜ, Az⁻¹ᶠᶜᶜ, δyᵃᶜᵃ, Δxᶠᶠᶜ,
-                              V⁻¹ᶠᶜᶜ, δxᶠᵃᵃ, δyᵃᶜᵃ, δzᵃᵃᶜ
+                              V⁻¹ᶠᶜᶜ, δxᶠᵃᵃ, δyᵃᶜᵃ, δzᵃᵃᶜ, Ay_qᶜᶠᶜ
 
 using Oceananigans.Utils: sum_of_velocities
 
@@ -340,25 +341,9 @@ function my_compute_hydrostatic_momentum_tendencies!(model, velocities, kernel_p
     grid = model.grid
     arch = grid.architecture
 
-    u_immersed_bc = immersed_boundary_condition(velocities.u)
+    start_momentum_kernel_args = (model.advection.momentum, velocities)
 
-    u_forcing = model.forcing.u
-
-    start_momentum_kernel_args = (model.advection.momentum,
-                                  model.coriolis,
-                                  model.closure)
-
-    end_momentum_kernel_args = (velocities,
-                                model.free_surface,
-                                model.tracers,
-                                model.buoyancy,
-                                model.closure_fields,
-                                model.pressure.pHY′,
-                                model.auxiliary_fields,
-                                model.vertical_coordinate,
-                                model.clock)
-
-    u_kernel_args = tuple(start_momentum_kernel_args..., u_immersed_bc, end_momentum_kernel_args..., u_forcing)
+    u_kernel_args = tuple(start_momentum_kernel_args...)
 
     launch!(arch, grid, kernel_parameters,
             my_compute_hydrostatic_free_surface_Gu!, model.timestepper.Gⁿ.u, grid,
@@ -374,34 +359,27 @@ end
 
 @inline function my_hydrostatic_free_surface_u_velocity_tendency(i, j, k, grid,
                                                               advection,
-                                                              coriolis,
-                                                              closure,
-                                                              u_immersed_bc,
-                                                              velocities,
-                                                              free_surface,
-                                                              tracers,
-                                                              buoyancy,
-                                                              diffusivities,
-                                                              hydrostatic_pressure_anomaly,
-                                                              auxiliary_fields,
-                                                              ztype,
-                                                              clock,
-                                                              forcing)
+                                                              velocities)
 
     return ( - my_div_𝐯u(i, j, k, grid, advection, velocities, velocities.u))
 end
 
 @inline function my_div_𝐯u(i, j, k, grid, advection, U, u)
-    return V⁻¹ᶠᶜᶜ(i, j, k, grid) * (δxᶠᵃᵃ(i, j, k, grid, _advective_momentum_flux_Uu, advection, U[1], u) +
-                                    δyᵃᶜᵃ(i, j, k, grid, _advective_momentum_flux_Vu, advection, U[2], u) +
-                                    δzᵃᵃᶜ(i, j, k, grid, _advective_momentum_flux_Wu, advection, U[3], u))
+    return  my_advective_momentum_flux_Vu(i, j+1, k, grid, advection, U[2], u)
 end
 
-@show @which compute_momentum_tendencies!(model, [])
+@inline function my_advective_momentum_flux_Vu(i, j, k, grid, scheme, V, u)
+
+    ṽ  = _symmetric_interpolate_xᶠᵃᵃ(i, j, k, grid, scheme, Ay_qᶜᶠᶜ, V)
+    uᴿ =    _biased_interpolate_yᵃᶠᵃ(i, j, k, grid, scheme, bias(ṽ), u)
+
+    return ṽ * uᴿ
+end
+
 
 #@show @which U_dot_∇u(1, 1, 1, model.grid, model.advection.momentum, model.velocities)
 
-@show @which div_𝐯u(1, 1, 1, model.grid, model.advection.momentum, model.velocities, model.velocities.u)
+@show @which advective_momentum_flux_Vu(1, 2, 1, model.grid, model.advection.momentum, model.velocities[2], model.velocities.u)
 
 @info "Compiling the model run..."
 rspinup_reentrant_channel_model! = @compile raise_first=true raise=true sync=true  my_compute_momentum_tendencies!(model, [])
