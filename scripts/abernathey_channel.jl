@@ -48,7 +48,8 @@ using Oceananigans.TurbulenceClosures.TKEBasedVerticalDiffusivities: FlavorOfCAT
 
 using Oceananigans.Advection: div_Uc, U_dot_∇u, U_dot_∇v, div_𝐯u,
                               _advective_momentum_flux_Uu, _advective_momentum_flux_Vu, _advective_momentum_flux_Wu,
-                              advective_momentum_flux_Vu, _symmetric_interpolate_xᶠᵃᵃ, _biased_interpolate_yᵃᶠᵃ, bias
+                              advective_momentum_flux_Vu, bias, #_symmetric_interpolate_xᶠᵃᵃ, _biased_interpolate_yᵃᶠᵃ,
+                              symmetric_interpolate_xᶠᵃᵃ, biased_interpolate_yᵃᶠᵃ
 
 using Oceananigans.Biogeochemistry: biogeochemical_transition, biogeochemical_drift_velocity
 using Oceananigans.Forcings: with_advective_forcing
@@ -373,13 +374,56 @@ end
     ṽ  = _symmetric_interpolate_xᶠᵃᵃ(i, j, k, grid, scheme, Ay_qᶜᶠᶜ, V)
     uᴿ =    _biased_interpolate_yᵃᶠᵃ(i, j, k, grid, scheme, bias(ṽ), u)
 
-    return ṽ * uᴿ
+    return uᴿ
+end
+
+for (bias, (d, ξ)) in zip((:symmetric, :biased), enumerate((:x, :y)))
+    code = [:ᵃ, :ᵃ, :ᵃ]
+
+    for loc in (:ᶜ, :ᶠ), alt in (:_, :__, :___, :____, :_____)
+        code[d] = loc
+        interp = Symbol(bias, :_interpolate_, ξ, code...)
+        alt_interp = Symbol(alt, interp)
+        @eval begin
+            import Oceananigans.Advection: $alt_interp
+            using Oceananigans.Advection: $interp
+        end
+    end
+
+    for loc in (:ᶜ, :ᶠ), (alt1, alt2) in zip((:_, :__, :___, :____, :_____), (:_____, :_, :__, :___, :____))
+        code[d] = loc
+        interp = Symbol(bias, :_interpolate_, ξ, code...)
+        alt1_interp = Symbol(alt1, interp)
+        alt2_interp = Symbol(alt2, interp)
+
+        near_boundary = Symbol(:near_, ξ, :_immersed_boundary_, bias, loc)
+
+        @eval begin
+
+            # Conditional high-order interpolation in Bounded directions
+            @inline $alt1_interp(i, j, k, ibg, scheme, args...) =
+                ifelse($near_boundary(i, j, k, ibg, scheme),
+                        $alt2_interp(i, j, k, ibg, scheme.buffer_scheme, args...),
+                        $interp(i, j, k, ibg, scheme, args...))
+        end
+    end
 end
 
 
 #@show @which U_dot_∇u(1, 1, 1, model.grid, model.advection.momentum, model.velocities)
 
-@show @which advective_momentum_flux_Vu(1, 2, 1, model.grid, model.advection.momentum, model.velocities[2], model.velocities.u)
+#@show @which advective_momentum_flux_Vu(1, 2, 1, model.grid, model.advection.momentum, model.velocities[2], model.velocities.u)
+@show @which _symmetric_interpolate_xᶠᵃᵃ(1, 2, 1, model.grid, model.advection.momentum, Ay_qᶜᶠᶜ, model.velocities[2])
+@show @which symmetric_interpolate_xᶠᵃᵃ(1, 2, 1, model.grid, model.advection.momentum, Ay_qᶜᶠᶜ, model.velocities[2])
+@show @which symmetric_interpolate_xᶠᵃᵃ(1, 2, 1, model.grid, model.advection.momentum.advecting_velocity_scheme, Ay_qᶜᶠᶜ, model.velocities[2])
+
+#@show @which bias(_symmetric_interpolate_xᶠᵃᵃ(1, 2, 1, model.grid, model.advection.momentum, Ay_qᶜᶠᶜ, model.velocities[2]))
+
+#@show bias(_symmetric_interpolate_xᶠᵃᵃ(1, 2, 1, model.grid, model.advection.momentum, Ay_qᶜᶠᶜ, model.velocities[2]))
+
+
+@show @which _biased_interpolate_yᵃᶠᵃ(1, 2, 1, model.grid, model.advection.momentum, Oceananigans.Advection.RightBias(), model.velocities.u)
+@show @which biased_interpolate_yᵃᶠᵃ(1, 2, 1, model.grid, model.advection.momentum, Oceananigans.Advection.RightBias(), model.velocities.u)
 
 @info "Compiling the model run..."
 rspinup_reentrant_channel_model! = @compile raise_first=true raise=true sync=true  my_compute_momentum_tendencies!(model, [])
