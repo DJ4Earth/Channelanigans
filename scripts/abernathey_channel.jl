@@ -46,7 +46,9 @@ using Oceananigans.Fields: immersed_boundary_condition
 using Oceananigans.Biogeochemistry: update_tendencies!
 using Oceananigans.TurbulenceClosures.TKEBasedVerticalDiffusivities: FlavorOfCATKE, FlavorOfTD
 
-using Oceananigans.Advection: div_Uc, U_dot_∇u, U_dot_∇v, div_𝐯u
+using Oceananigans.Advection: div_Uc, U_dot_∇u, U_dot_∇v, div_𝐯u,
+                              _advective_momentum_flux_Uu, _advective_momentum_flux_Vu, _advective_momentum_flux_Wu
+
 using Oceananigans.Biogeochemistry: biogeochemical_transition, biogeochemical_drift_velocity
 using Oceananigans.Forcings: with_advective_forcing
 using Oceananigans.Operators: ∂xᶠᶜᶜ, ∂yᶜᶠᶜ
@@ -56,8 +58,8 @@ using Oceananigans.TurbulenceClosures: ∂ⱼ_τ₁ⱼ, ∂ⱼ_τ₂ⱼ, ∇_dot
 
 using Oceananigans.Coriolis: x_f_cross_U
 
-using Oceananigans.Operators: ℑxᶠᵃᵃ, ℑyᵃᶜᵃ, Δx_qᶜᶠᶜ, Δx⁻¹ᶠᶜᶜ, δxᶠᵃᵃ, Δyᶜᶜᶜ, Az⁻¹ᶠᶜᶜ, δyᵃᶜᵃ, Δxᶠᶠᶜ
-
+using Oceananigans.Operators: ℑxᶠᵃᵃ, ℑyᵃᶜᵃ, Δx_qᶜᶠᶜ, Δx⁻¹ᶠᶜᶜ, δxᶠᵃᵃ, Δyᶜᶜᶜ, Az⁻¹ᶠᶜᶜ, δyᵃᶜᵃ, Δxᶠᶠᶜ,
+                              V⁻¹ᶠᶜᶜ, δxᶠᵃᵃ, δyᵃᶜᵃ, δzᵃᵃᶜ
 
 using Oceananigans.Utils: sum_of_velocities
 
@@ -386,22 +388,20 @@ end
                                                               clock,
                                                               forcing)
 
-    return ( - my_U_dot_∇u(i, j, k, grid, advection, velocities))
+    return ( - my_div_𝐯u(i, j, k, grid, advection, velocities, velocities.u))
 end
 
-@inline function my_U_dot_∇u(i, j, k, grid, advection, U)
-
-    v̂ = ℑxᶠᵃᵃ(i, j, k, grid, ℑyᵃᶜᵃ, Δx_qᶜᶠᶜ, U.v) * Δx⁻¹ᶠᶜᶜ(i, j, k, grid)
-    û = @inbounds U.u[i, j, k]
-
-    return div_𝐯u(i, j, k, grid, advection, U, U.u) -
-           v̂ * v̂ * δxᶠᵃᵃ(i, j, k, grid, Δyᶜᶜᶜ) * Az⁻¹ᶠᶜᶜ(i, j, k, grid) +
-           v̂ * û * δyᵃᶜᵃ(i, j, k, grid, Δxᶠᶠᶜ) * Az⁻¹ᶠᶜᶜ(i, j, k, grid)
+@inline function my_div_𝐯u(i, j, k, grid, advection, U, u)
+    return V⁻¹ᶠᶜᶜ(i, j, k, grid) * (δxᶠᵃᵃ(i, j, k, grid, _advective_momentum_flux_Uu, advection, U[1], u) +
+                                    δyᵃᶜᵃ(i, j, k, grid, _advective_momentum_flux_Vu, advection, U[2], u) +
+                                    δzᵃᵃᶜ(i, j, k, grid, _advective_momentum_flux_Wu, advection, U[3], u))
 end
 
 @show @which compute_momentum_tendencies!(model, [])
 
-@show @which U_dot_∇u(1, 1, 1, model.grid, model.advection.momentum, model.velocities)
+#@show @which U_dot_∇u(1, 1, 1, model.grid, model.advection.momentum, model.velocities)
+
+@show @which div_𝐯u(1, 1, 1, model.grid, model.advection.momentum, model.velocities, model.velocities.u)
 
 @info "Compiling the model run..."
 rspinup_reentrant_channel_model! = @compile raise_first=true raise=true sync=true  my_compute_momentum_tendencies!(model, [])
