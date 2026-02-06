@@ -188,7 +188,7 @@ function build_model(grid, Δt₀, parameters)
 
     @info "Building a model..."
 
-    @allowscalar model = HydrostaticFreeSurfaceModel(grid;
+    @allowscalar model = HydrostaticFreeSurfaceModel(grid = grid,
         free_surface = SplitExplicitFreeSurface(substeps=10),
         momentum_advection = WENO(order=3),
         tracer_advection = WENO(order=3),
