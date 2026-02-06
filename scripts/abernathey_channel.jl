@@ -380,35 +380,41 @@ end
 for (bias, (d, ξ)) in zip((:symmetric, :biased), enumerate((:x, :y)))
     code = [:ᵃ, :ᵃ, :ᵃ]
 
-    for loc in (:ᶜ, :ᶠ), alt in (:_, :__, :___, :____, :_____)
-        code[d] = loc
+    for alt in (:_, :__, :___, :____, :_____)
+        code[d] = :ᶠ
         interp = Symbol(bias, :_interpolate_, ξ, code...)
         alt_interp = Symbol(alt, interp)
         @eval begin
             import Oceananigans.Advection: $alt_interp
-            using Oceananigans.Advection: $interp
         end
     end
 
-    for loc in (:ᶜ, :ᶠ), (alt1, alt2) in zip((:_, :__, :___, :____, :_____), (:_____, :_, :__, :___, :____))
-        code[d] = loc
+    for (alt1, alt2) in zip((:_, :__, :___, :____, :_____), (:_____, :_, :__, :___, :____))
+        code[d] = :ᶠ
         interp = Symbol(bias, :_interpolate_, ξ, code...)
         alt1_interp = Symbol(alt1, interp)
         alt2_interp = Symbol(alt2, interp)
 
-        near_boundary = Symbol(:near_, ξ, :_immersed_boundary_, bias, loc)
+        near_boundary = Symbol(:near_, ξ, :_immersed_boundary_, bias, :ᶠ)
 
         @eval begin
 
             # Conditional high-order interpolation in Bounded directions
             @inline $alt1_interp(i, j, k, ibg, scheme, args...) =
-                ifelse($near_boundary(i, j, k, ibg, scheme),
+                ifelse(k > 30,
                         $alt2_interp(i, j, k, ibg, scheme.buffer_scheme, args...),
                         $interp(i, j, k, ibg, scheme, args...))
         end
     end
 end
 
+#=
+function biased_interpolate_yᵃᶠᵃ(i, j, k, grid, scheme, bias, ψ, args...)
+    ψₜ = weno_stencil_yᵃᶠᵃ(i, j, k, grid, scheme, bias, ψ, args...)
+    ω = biased_weno_weights(ψₜ, grid, scheme, bias, args...)
+    return weno_reconstruction(scheme, bias, ψₜ, ω)
+end
+=#
 
 #@show @which U_dot_∇u(1, 1, 1, model.grid, model.advection.momentum, model.velocities)
 
@@ -425,6 +431,9 @@ end
 @show @which _biased_interpolate_yᵃᶠᵃ(1, 2, 1, model.grid, model.advection.momentum, Oceananigans.Advection.RightBias(), model.velocities.u)
 @show @which biased_interpolate_yᵃᶠᵃ(1, 2, 1, model.grid, model.advection.momentum, Oceananigans.Advection.RightBias(), model.velocities.u)
 
+@show model.advection.momentum
+@show model.advection.momentum.buffer_scheme
+
 @info "Compiling the model run..."
-rspinup_reentrant_channel_model! = @compile raise_first=true raise=true sync=true  my_compute_momentum_tendencies!(model, [])
+#rspinup_reentrant_channel_model! = @compile raise_first=true raise=true sync=true  my_compute_momentum_tendencies!(model, [])
             
