@@ -435,5 +435,5 @@ end
 @show model.advection.momentum.buffer_scheme
 
 @info "Compiling the model run..."
-#rspinup_reentrant_channel_model! = @compile raise_first=true raise=true sync=true  my_compute_momentum_tendencies!(model, [])
+rspinup_reentrant_channel_model! = @compile raise_first=true raise=true sync=true  my_compute_momentum_tendencies!(model, [])
             
