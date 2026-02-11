@@ -392,12 +392,7 @@ end
 
     return ( - U_dot_∇v(i, j, k, grid, advection, velocities)
              - explicit_barotropic_pressure_y_gradient(i, j, k, grid, free_surface)
-             - y_f_cross_U(i, j, k, grid, coriolis, velocities)
-             - ∂yᶜᶠᶜ(i, j, k, grid, hydrostatic_pressure_anomaly)
-             - grid_slope_contribution_y(i, j, k, grid, buoyancy, ztype, model_fields)
-             - ∂ⱼ_τ₂ⱼ(i, j, k, grid, closure, diffusivities, clock, model_fields, buoyancy)
-             - immersed_∂ⱼ_τ₂ⱼ(i, j, k, grid, velocities, v_immersed_bc, closure, diffusivities, clock, model_fields)
-             + forcing(i, j, k, grid, clock, model_fields))
+             - y_f_cross_U(i, j, k, grid, coriolis, velocities))
 end
 
 @show @which compute_momentum_tendencies!(model, [])
