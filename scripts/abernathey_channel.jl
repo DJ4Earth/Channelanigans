@@ -343,7 +343,9 @@ function my_compute_hydrostatic_momentum_tendencies!(model, velocities, kernel_p
 
     v_kernel_args = tuple(model.advection.momentum, velocities)
 
-    @show @which div_𝐯v(1, 1, 1, grid, model.advection.momentum, velocities, velocities.v)
+    #@show @which div_𝐯v(1, 1, 1, grid, model.advection.momentum, velocities, velocities.v)
+    @show @which δxᶜᵃᵃ(1, 1, 1, grid, _advective_momentum_flux_Uv, model.advection.momentum, velocities[1], velocities.v)
+    @show @which δyᵃᶠᵃ(1, 1, 1, grid, _advective_momentum_flux_Vv, model.advection.momentum, velocities[2], velocities.v)
 
     launch!(arch, grid, kernel_parameters,
             my_compute_hydrostatic_free_surface_Gv!, model.timestepper.Gⁿ.v, grid,
@@ -361,21 +363,12 @@ end
                                                               advection,
                                                               velocities)
 
-    return ( - my_U_dot_∇v(i, j, k, grid, advection, velocities))
-end
-
-@inline function my_U_dot_∇v(i, j, k, grid, advection, U)
-    
-    return my_div_𝐯v(i, j, k, grid, advection, U, U.v)
+    return - my_div_𝐯v(i, j, k, grid, advection, velocities, velocities.v)
 end
 
 @inline function my_div_𝐯v(i, j, k, grid, advection, U, v)
-    return V⁻¹ᶜᶠᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_momentum_flux_Uv, advection, U[1], v) +
-                                    δyᵃᶠᵃ(i, j, k, grid, _advective_momentum_flux_Vv, advection, U[2], v)    +
-                                    δzᵃᵃᶜ(i, j, k, grid, _advective_momentum_flux_Wv, advection, U[3], v))
+    return (_advective_momentum_flux_Uv(i+1, j, k, grid, advection, U[1], v) - _advective_momentum_flux_Vv(i-1, j, k, grid, advection, U[2], v))
 end
-
-@show @which compute_momentum_tendencies!(model, [])
 
 @info "Compiling the model run..."
 rspinup_reentrant_channel_model! = @compile raise_first=true raise=true sync=true  my_compute_momentum_tendencies!(model, [])
