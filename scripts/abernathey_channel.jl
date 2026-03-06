@@ -64,9 +64,10 @@ using Oceananigans.Grids: get_active_cells_map
 
 using Oceananigans.Utils: launch!
 
-using Oceananigans.Operators: ℑyᵃᶠᵃ, ℑxᶜᵃᵃ, Δy_qᶠᶜᶜ, Δy⁻¹ᶜᶠᶜ, δxᶜᵃᵃ, Δyᶠᶠᶜ, Az⁻¹ᶜᶠᶜ, δyᵃᶠᵃ, Δxᶜᶜᶜ, Az⁻¹ᶜᶠᶜ
+using Oceananigans.Operators: ℑyᵃᶠᵃ, ℑxᶜᵃᵃ, Δy_qᶠᶜᶜ, Δy⁻¹ᶜᶠᶜ, δxᶜᵃᵃ, Δyᶠᶠᶜ, Az⁻¹ᶜᶠᶜ, δyᵃᶠᵃ, Δxᶜᶜᶜ, Az⁻¹ᶜᶠᶜ,
+                              V⁻¹ᶜᶠᶜ, δxᶜᵃᵃ, δyᵃᶠᵃ, δzᵃᵃᶜ
 
-using Oceananigans.Advection: div_𝐯v
+using Oceananigans.Advection: div_𝐯v, _advective_momentum_flux_Uv, _advective_momentum_flux_Vv, _advective_momentum_flux_Wv
 
 using KernelAbstractions: @kernel, @index
 
@@ -342,7 +343,7 @@ function my_compute_hydrostatic_momentum_tendencies!(model, velocities, kernel_p
 
     v_kernel_args = tuple(model.advection.momentum, velocities)
 
-    @show @which U_dot_∇v(1, 1, 1, grid, v_kernel_args...)
+    @show @which div_𝐯v(1, 1, 1, grid, model.advection.momentum, velocities, velocities.v)
 
     launch!(arch, grid, kernel_parameters,
             my_compute_hydrostatic_free_surface_Gv!, model.timestepper.Gⁿ.v, grid,
@@ -364,17 +365,17 @@ end
 end
 
 @inline function my_U_dot_∇v(i, j, k, grid, advection, U)
+    
+    return my_div_𝐯v(i, j, k, grid, advection, U, U.v)
+end
 
-    û = ℑyᵃᶠᵃ(i, j, k, grid, ℑxᶜᵃᵃ, Δy_qᶠᶜᶜ, U.u) * Δy⁻¹ᶜᶠᶜ(i, j, k, grid)
-    v̂ = @inbounds U.v[i, j, k]
-
-    return div_𝐯v(i, j, k, grid, advection, U, U.v) +
-           û * v̂ * δxᶜᵃᵃ(i, j, k, grid, Δyᶠᶠᶜ) * Az⁻¹ᶜᶠᶜ(i, j, k, grid) -
-           û * û * δyᵃᶠᵃ(i, j, k, grid, Δxᶜᶜᶜ) * Az⁻¹ᶜᶠᶜ(i, j, k, grid)
+@inline function my_div_𝐯v(i, j, k, grid, advection, U, v)
+    return V⁻¹ᶜᶠᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_momentum_flux_Uv, advection, U[1], v) +
+                                    δyᵃᶠᵃ(i, j, k, grid, _advective_momentum_flux_Vv, advection, U[2], v)    +
+                                    δzᵃᵃᶜ(i, j, k, grid, _advective_momentum_flux_Wv, advection, U[3], v))
 end
 
 @show @which compute_momentum_tendencies!(model, [])
 
 @info "Compiling the model run..."
 rspinup_reentrant_channel_model! = @compile raise_first=true raise=true sync=true  my_compute_momentum_tendencies!(model, [])
-            
