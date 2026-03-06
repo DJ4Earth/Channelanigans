@@ -64,6 +64,10 @@ using Oceananigans.Grids: get_active_cells_map
 
 using Oceananigans.Utils: launch!
 
+using Oceananigans.Operators: ℑyᵃᶠᵃ, ℑxᶜᵃᵃ, Δy_qᶠᶜᶜ, Δy⁻¹ᶜᶠᶜ, δxᶜᵃᵃ, Δyᶠᶠᶜ, Az⁻¹ᶜᶠᶜ, δyᵃᶠᵃ, Δxᶜᶜᶜ, Az⁻¹ᶜᶠᶜ
+
+using Oceananigans.Advection: div_𝐯v
+
 using KernelAbstractions: @kernel, @index
 
 #Reactant.set_default_backend("cpu")
@@ -159,7 +163,7 @@ function make_grid(architecture, Nx, Ny, Nz, z_faces)
     ridge = Field{Center, Center, Nothing}(underlying_grid)
     @allowscalar set!(ridge, wall_function)
 
-    grid = ImmersedBoundaryGrid(underlying_grid, GridFittedBottom(ridge))
+    grid = ImmersedBoundaryGrid(underlying_grid, GridFittedBottom(ridge), active_cells_map=false)
     return grid
 end
 
@@ -336,29 +340,9 @@ function my_compute_hydrostatic_momentum_tendencies!(model, velocities, kernel_p
     grid = model.grid
     arch = grid.architecture
 
-    u_immersed_bc = immersed_boundary_condition(velocities.u)
-    v_immersed_bc = immersed_boundary_condition(velocities.v)
+    v_kernel_args = tuple(model.advection.momentum, velocities)
 
-    u_forcing = model.forcing.u
-    v_forcing = model.forcing.v
-
-    start_momentum_kernel_args = (model.advection.momentum,
-                                  model.coriolis,
-                                  model.closure)
-
-    end_momentum_kernel_args = (velocities,
-                                model.free_surface,
-                                model.tracers,
-                                model.buoyancy,
-                                model.closure_fields,
-                                model.pressure.pHY′,
-                                model.auxiliary_fields,
-                                model.vertical_coordinate,
-                                model.clock)
-
-    u_kernel_args = tuple(start_momentum_kernel_args..., u_immersed_bc, end_momentum_kernel_args..., u_forcing)
-    v_kernel_args = tuple(start_momentum_kernel_args..., v_immersed_bc, end_momentum_kernel_args..., v_forcing)
-
+    @show @which U_dot_∇v(1, 1, 1, grid, v_kernel_args...)
 
     launch!(arch, grid, kernel_parameters,
             my_compute_hydrostatic_free_surface_Gv!, model.timestepper.Gⁿ.v, grid,
@@ -374,25 +358,19 @@ end
 
 @inline function my_hydrostatic_free_surface_v_velocity_tendency(i, j, k, grid,
                                                               advection,
-                                                              coriolis,
-                                                              closure,
-                                                              v_immersed_bc,
-                                                              velocities,
-                                                              free_surface,
-                                                              tracers,
-                                                              buoyancy,
-                                                              diffusivities,
-                                                              hydrostatic_pressure_anomaly,
-                                                              auxiliary_fields,
-                                                              ztype,
-                                                              clock,
-                                                              forcing)
+                                                              velocities)
 
-    model_fields = merge(hydrostatic_fields(velocities, free_surface, tracers), auxiliary_fields)
+    return ( - my_U_dot_∇v(i, j, k, grid, advection, velocities))
+end
 
-    return ( - U_dot_∇v(i, j, k, grid, advection, velocities)
-             - explicit_barotropic_pressure_y_gradient(i, j, k, grid, free_surface)
-             - y_f_cross_U(i, j, k, grid, coriolis, velocities))
+@inline function my_U_dot_∇v(i, j, k, grid, advection, U)
+
+    û = ℑyᵃᶠᵃ(i, j, k, grid, ℑxᶜᵃᵃ, Δy_qᶠᶜᶜ, U.u) * Δy⁻¹ᶜᶠᶜ(i, j, k, grid)
+    v̂ = @inbounds U.v[i, j, k]
+
+    return div_𝐯v(i, j, k, grid, advection, U, U.v) +
+           û * v̂ * δxᶜᵃᵃ(i, j, k, grid, Δyᶠᶠᶜ) * Az⁻¹ᶜᶠᶜ(i, j, k, grid) -
+           û * û * δyᵃᶠᵃ(i, j, k, grid, Δxᶜᶜᶜ) * Az⁻¹ᶜᶠᶜ(i, j, k, grid)
 end
 
 @show @which compute_momentum_tendencies!(model, [])
