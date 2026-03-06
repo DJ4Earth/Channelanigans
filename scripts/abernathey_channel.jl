@@ -65,9 +65,11 @@ using Oceananigans.Grids: get_active_cells_map
 using Oceananigans.Utils: launch!
 
 using Oceananigans.Operators: ℑyᵃᶠᵃ, ℑxᶜᵃᵃ, Δy_qᶠᶜᶜ, Δy⁻¹ᶜᶠᶜ, δxᶜᵃᵃ, Δyᶠᶠᶜ, Az⁻¹ᶜᶠᶜ, δyᵃᶠᵃ, Δxᶜᶜᶜ, Az⁻¹ᶜᶠᶜ,
-                              V⁻¹ᶜᶠᶜ, δxᶜᵃᵃ, δyᵃᶠᵃ, δzᵃᵃᶜ
+                              V⁻¹ᶜᶠᶜ, δxᶜᵃᵃ, δyᵃᶠᵃ, δzᵃᵃᶜ, Ax_qᶠᶜᶜ, Ay_qᶜᶠᶜ
 
-using Oceananigans.Advection: div_𝐯v, _advective_momentum_flux_Uv, _advective_momentum_flux_Vv, _advective_momentum_flux_Wv
+using Oceananigans.Advection: div_𝐯v, _advective_momentum_flux_Uv, _advective_momentum_flux_Vv, _advective_momentum_flux_Wv,
+                              advective_momentum_flux_Uv, advective_momentum_flux_Vv, bias,
+                              _symmetric_interpolate_yᵃᶠᵃ, _biased_interpolate_xᶠᵃᵃ, _symmetric_interpolate_yᵃᶜᵃ, _biased_interpolate_yᵃᶜᵃ
 
 using KernelAbstractions: @kernel, @index
 
@@ -343,9 +345,8 @@ function my_compute_hydrostatic_momentum_tendencies!(model, velocities, kernel_p
 
     v_kernel_args = tuple(model.advection.momentum, velocities)
 
-    #@show @which div_𝐯v(1, 1, 1, grid, model.advection.momentum, velocities, velocities.v)
-    @show @which δxᶜᵃᵃ(1, 1, 1, grid, _advective_momentum_flux_Uv, model.advection.momentum, velocities[1], velocities.v)
-    @show @which δyᵃᶠᵃ(1, 1, 1, grid, _advective_momentum_flux_Vv, model.advection.momentum, velocities[2], velocities.v)
+    @show @which advective_momentum_flux_Uv(2, 1, 1, grid, model.advection.momentum, velocities[1], velocities.v)
+    @show @which advective_momentum_flux_Vv(1, 1, 1, grid, model.advection.momentum, velocities[2], velocities.v)
 
     launch!(arch, grid, kernel_parameters,
             my_compute_hydrostatic_free_surface_Gv!, model.timestepper.Gⁿ.v, grid,
@@ -367,7 +368,23 @@ end
 end
 
 @inline function my_div_𝐯v(i, j, k, grid, advection, U, v)
-    return (_advective_momentum_flux_Uv(i+1, j, k, grid, advection, U[1], v) - _advective_momentum_flux_Vv(i-1, j, k, grid, advection, U[2], v))
+    return my_advective_momentum_flux_Uv(i+1, j, k, grid, advection, U[1], v) - my_advective_momentum_flux_Vv(i-1, j, k, grid, advection, U[2], v)
+end
+
+@inline function my_advective_momentum_flux_Uv(i, j, k, grid, scheme, U, v)
+
+    ũ  = _symmetric_interpolate_yᵃᶠᵃ(i, j, k, grid, scheme, Ax_qᶠᶜᶜ, U)
+    vᴿ =    _biased_interpolate_xᶠᵃᵃ(i, j, k, grid, scheme, bias(ũ), v)
+
+    return ũ * vᴿ
+end
+
+@inline function my_advective_momentum_flux_Vv(i, j, k, grid, scheme, V, v)
+
+    ṽ  = _symmetric_interpolate_yᵃᶜᵃ(i, j, k, grid, scheme, Ay_qᶜᶠᶜ, V)
+    vᴿ =    _biased_interpolate_yᵃᶜᵃ(i, j, k, grid, scheme, bias(ṽ), v)
+
+    return ṽ * vᴿ
 end
 
 @info "Compiling the model run..."
