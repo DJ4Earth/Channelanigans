@@ -26,8 +26,17 @@ using Enzyme
 
 Oceananigans.defaults.FloatType = Float64
 
-graph_directory = "run_abernathy_model_ad_spinup1000_100steps/"
-#graph_directory = "run_abernathy_model_ad_spinup40000000_8100steps/"
+@info "To specify architecture uncomment line 'Reactant.set_default_backend(\"cpu\")' "
+#Reactant.set_default_backend("cpu")
+
+using Enzyme
+
+Oceananigans.defaults.FloatType = Float64
+
+const Ntimesteps = 25        # Number of timesteps in zonal transport computed / AD'ed part
+const Nspinup    = 100        # Number of timesteps that the model is spun up
+
+graph_directory = "run_abernathy_model_ad_spinup" * string(Nspinup) * "_" * string(Ntimesteps) * "steps/"
 
 #
 # Model parameters to set first:
@@ -109,7 +118,7 @@ function make_grid(architecture, Nx, Ny, Nz, z_faces)
 
     # Make into a ridge array:
     ridge = Field{Center, Center, Nothing}(underlying_grid)
-    @allowscalar set!(ridge, wall_function)
+    set!(ridge, wall_function)
 
     grid = ImmersedBoundaryGrid(underlying_grid, GridFittedBottom(ridge))
     return grid
@@ -176,7 +185,6 @@ function build_model(grid, Δt₀, parameters)
         taper = exp(- (k-1) / decay_scale)
         κz_array[:,:,k] .= κz + κz_add * taper
     end
-    @show κz_array[1:2,20,:]
 
     set!(κz_field, κz_array)
 
@@ -188,7 +196,8 @@ function build_model(grid, Δt₀, parameters)
 
     @info "Building a model..."
 
-    @allowscalar model = HydrostaticFreeSurfaceModel(grid;
+    model = HydrostaticFreeSurfaceModel(
+        grid = grid,
         free_surface = SplitExplicitFreeSurface(substeps=10),
         momentum_advection = WENO(order=3),
         tracer_advection = WENO(order=3),
@@ -249,7 +258,7 @@ end
 
 function spinup_loop!(model)
     Δt = model.clock.last_Δt
-    @trace mincut = true track_numbers = false for i = 1:1000
+    @trace mincut = true track_numbers = false for i = 1:Nspinup
         time_step!(model, Δt)
     end
     return nothing
@@ -279,7 +288,7 @@ end
 
 function loop!(model)
     Δt = model.clock.last_Δt
-    @trace mincut = true checkpointing = true track_numbers = false for i = 1:100
+    @trace mincut = true checkpointing = true track_numbers = false for i = 1:Ntimesteps
         time_step!(model, Δt)
     end
     return nothing
@@ -348,7 +357,7 @@ T_flux        = T_flux_init(model.grid, parameters)
 u_wind_stress = u_wind_stress_init(model.grid, parameters)
 v_wind_stress = v_wind_stress_init(model.grid, parameters)
 Tᵢ, Sᵢ        = temperature_salinity_init(model.grid, parameters)
-mld           = Field{Center, Center, Nothing}(model.grid) # Not used for now
+mld           = Field{Center, Center, Nothing}(model.grid)
 Δz            = Reactant.ConcreteRArray(Δz)
 
 @info "Built $model."
@@ -364,7 +373,7 @@ dΔz            = Enzyme.make_zero(Δz)
 
 # Trying zonal transport:
 
-@info "Compiling the model run..."
+@info "Compiling the model run... (if you want to run forward code only, just compile 'estimate_tracer_error')"
 tic = time()
 rspinup_reentrant_channel_model! = @compile raise_first=true raise=true sync=true  spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux)
 #restimate_tracer_error = @compile raise_first=true raise=true sync=true estimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
@@ -389,7 +398,7 @@ else
     set!(bottom_height, -Lz)
 end
 
-# Spinup the model for a sufficient amount of time, save the T and S from this state:
+@info "Spinup the model for $Nspinup timesteps, save the T and S from this state:"
 tic = time()
 rspinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux)
 @allowscalar set!(Tᵢ, model.tracers.T)
@@ -409,16 +418,22 @@ jldsave(filename; Nx, Ny, Nz,
                   dkappaS_init=convert(Array, interior(dmodel.closure[2].κ[2])),
                   T_flux=convert(Array, interior(T_flux)))
 
-
-tic = time()
+@info "Running for results, then profiling:"
 #output = restimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-dedν = rdifferentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld, dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
+dedν   = rdifferentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld, dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
+
+
+@info "Running the simulation for $Ntimesteps timesteps ... (if you want to run the forward code only, just run 'restimate_tracer_error')"
+tic = time()
+#Reactant.Profiler.@profile output = restimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
+Reactant.Profiler.@profile rdifferentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld, dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
 run_toc = time() - tic
 
+@info "Run toc gives you the combined time of the warmup run and the counted run from @profile, so it should be somewhat over 2x the time of profile"
 @show run_toc
 #@show output
 
-@show dedν
+#@show dedν
 
 filename = graph_directory * "data_final.jld2"
 
