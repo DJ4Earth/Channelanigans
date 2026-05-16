@@ -345,166 +345,44 @@ end
 #####
 
 # Architecture
-architecture = ReactantState()
+arch = ReactantState()
 
 # Timestep size:
 Δt₀ = 2.5minutes 
 
 # Make the grid:
-grid          = make_grid(architecture, Nx, Ny, Nz, z_faces)
-model         = build_model(grid, Δt₀, parameters)
-T_flux        = T_flux_init(model.grid, parameters)
-u_wind_stress = u_wind_stress_init(model.grid, parameters)
-v_wind_stress = v_wind_stress_init(model.grid, parameters)
-Tᵢ, Sᵢ        = temperature_salinity_init(model.grid, parameters)
-mld           = Field{Center, Center, Nothing}(model.grid)
-Δz            = Reactant.ConcreteRArray(Δz)
-
-@info "Built $model."
-
-dmodel         = Enzyme.make_zero(model)
-dTᵢ            = Field{Center, Center, Center}(model.grid)
-dSᵢ            = Field{Center, Center, Center}(model.grid)
-du_wind_stress = Field{Face, Center, Nothing}(model.grid)
-dv_wind_stress = Field{Center, Face, Nothing}(model.grid)
-dT_flux        = Field{Center, Center, Nothing}(model.grid)
-dmld           = Field{Center, Center, Nothing}(model.grid)
-dΔz            = Enzyme.make_zero(Δz)
+grid          = make_grid(arch, Nx, Ny, Nz, z_faces)
 
 # Trying zonal transport:
 
-@info "Compiling the model run... (if you want to run forward code only, just compile 'estimate_tracer_error')"
-tic = time()
-rspinup_reentrant_channel_model! = @compile raise_first=true raise=true sync=true  spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux)
-#restimate_tracer_error = @compile raise_first=true raise=true sync=true estimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-rdifferentiate_tracer_error = @compile raise_first=true raise=true sync=true  differentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld,
-                                                                                                        dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
-compile_toc = time() - tic
 
-@show compile_toc
+function print_eltype!(grid)
 
-@info "Running the simulation..."
+    FT = eltype(grid)
 
-using FileIO, JLD2
+    @show FT
+    @show typeof(grid)
 
-filename = graph_directory * "data_init.jld2"
-
-if !isdir(graph_directory) Base.Filesystem.mkdir(graph_directory) end
-
-if isa(model.grid, ImmersedBoundaryGrid)
-    bottom_height = model.grid.immersed_boundary.bottom_height
-else
-    bottom_height = Field{Center, Center, Nothing}(model.grid)
-    set!(bottom_height, -Lz)
+    return nothing
 end
 
-@info "Spinup the model for $Nspinup timesteps, save the T and S from this state:"
-tic = time()
-rspinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux)
-@allowscalar set!(Tᵢ, model.tracers.T)
-@allowscalar set!(Sᵢ, model.tracers.S)
-spinup_toc = time() - tic
-@show spinup_toc
+@show typeof(grid.underlying_grid)
 
-jldsave(filename; Nx, Ny, Nz,
-                  bottom_height=convert(Array, interior(bottom_height)),
-                  T_init=convert(Array, interior(model.tracers.T)),
-                  S_init=convert(Array, interior(model.tracers.S)),
-                  ssh=convert(Array, interior(model.free_surface.η)),
-                  e_init=convert(Array, interior(model.tracers.e)),
-                  u_wind_stress=convert(Array, interior(u_wind_stress)),
-                  v_wind_stress=convert(Array, interior(v_wind_stress)),
-                  dkappaT_init=convert(Array, interior(dmodel.closure[2].κ[1])),
-                  dkappaS_init=convert(Array, interior(dmodel.closure[2].κ[2])),
-                  T_flux=convert(Array, interior(T_flux)))
-
-@info "Running for results, then profiling:"
-#output = restimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-dedν   = rdifferentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld, dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
-
-
-@info "Running the simulation for $Ntimesteps timesteps ... (if you want to run the forward code only, just run 'restimate_tracer_error')"
-tic = time()
-#Reactant.Profiler.@profile output = restimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-Reactant.Profiler.@profile rdifferentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld, dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
-run_toc = time() - tic
-
-@info "Run toc gives you the combined time of the warmup run and the counted run from @profile, so it should be somewhat over 2x the time of profile"
-@show run_toc
-#@show output
-
-#@show dedν
-
-filename = graph_directory * "data_final.jld2"
-
-jldsave(filename; Nx, Ny, Nz,
-                  T_final=convert(Array, interior(model.tracers.T)),
-                  S_final=convert(Array, interior(model.tracers.S)),
-                  e_final=convert(Array, interior(model.tracers.e)),
-                  ssh=convert(Array, interior(model.free_surface.η)),
-                  u=convert(Array, interior(model.velocities.u)),
-                  v=convert(Array, interior(model.velocities.v)),
-                  w=convert(Array, interior(model.velocities.w)),
-                  mld=convert(Array, interior(mld)),
-                  #zonal_transport=convert(Float64, output),
-                  zonal_transport=convert(Float64, dedν[2]),
-                  du_wind_stress=convert(Array, interior(du_wind_stress)),
-                  dv_wind_stress=convert(Array, interior(dv_wind_stress)),
-                  dT=convert(Array, interior(dTᵢ)),
-                  dS=convert(Array, interior(dSᵢ)),
-                  dkappaT_final=convert(Array, interior(dmodel.closure[2].κ[1])),
-                  dkappaS_final=convert(Array, interior(dmodel.closure[2].κ[2])),
-                  dT_flux=convert(Array, interior(dT_flux)))
+rprint_eltype! = @compile raise_first=true raise=true sync=true  print_eltype!(grid.underlying_grid)
 
 #=
-@allowscalar @show argmax(abs.(dTᵢ))
+resolution = 3 // 2        # degrees
+Nx = 360 ÷ resolution      # number of longitude points
+Ny = 170 ÷ resolution      # number of latitude points (avoiding poles)
+Nz = 10                    # number of vertical levels
+size = (Nx, Ny, Nz)
+halo = (7, 7, 7)           # halo size for higher-order advection schemes
+H = 5000                   # domain depth [m]
+latitude = (-85, 85)       # latitude range (avoiding poles for lat-lon grid)
+longitude = (0, 360)       # longitude range
+z = (-H, 0) 
 
-#
-# Loop of FD results for comparison:
-#
-i_range = [21, 22, 23, 24, 25, 26, 27, 28]
-j_range = [45, 46, 47, 48, 49, 50, 51, 52]
+lat_lon_grid = LatitudeLongitudeGrid(arch; size, halo, latitude, longitude, z)
 
-epsilon_range = [1e-2, 1e-4, 1e-6]
-
-for i = 21:28
-    for j = 45:52
-
-        @show i, j
-        @allowscalar @show dTᵢ[i, j, 1]
-
-        for eps in epsilon_range
-            # Reset everything to 0:
-            model_fd = build_model(grid, Δt₀, parameters)
-            
-            # Set new T and S init fields for FD:
-            Tᵢ_fd, Sᵢ_fd = temperature_salinity_init(model_fd.grid, parameters)
-
-            # Permute the model field at i,j,1
-            @allowscalar Tᵢ_fd[i, j, 1] = Tᵢ_fd[i, j, 1] + eps
-
-            outputP = restimate_tracer_error(model_fd, Tᵢ_fd, Sᵢ_fd, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-
-            # Reset everything to 0:
-            model_fd = build_model(grid, Δt₀, parameters)
-            
-            # Set new T and S init fields for FD:
-            Tᵢ_fd, Sᵢ_fd = temperature_salinity_init(model_fd.grid, parameters)
-
-            # Permute the model field at i,j,1
-            @allowscalar Tᵢ_fd[i, j, 1] = Tᵢ_fd[i, j, 1] - eps
-
-            outputM = restimate_tracer_error(model_fd, Tᵢ_fd, Sᵢ_fd, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-
-            dT_fd = (outputP - outputM) / (2eps)
-
-            @show eps, dT_fd
-
-            if i == 21
-                @show outputP, outputM
-            end
-        end
-    end
-end
+rprint_eltype! = @compile raise_first=true raise=true sync=true  print_eltype!(lat_lon_grid)
 =#
-            
