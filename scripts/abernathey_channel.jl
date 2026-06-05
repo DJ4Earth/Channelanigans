@@ -12,7 +12,7 @@ using Oceananigans
 using Oceananigans.Units
 using Oceananigans.OutputReaders: FieldTimeSeries
 using Oceananigans.Grids: xnode, ynode, znode
-using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity, HorizontalFormulation
+using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity, HorizontalFormulation, IsopycnalSkewSymmetricDiffusivity
 
 using SeawaterPolynomials
 
@@ -33,10 +33,10 @@ using Enzyme
 
 Oceananigans.defaults.FloatType = Float64
 
-const Ntimesteps = 25        # Number of timesteps in zonal transport computed / AD'ed part
-const Nspinup    = 100        # Number of timesteps that the model is spun up
+const Ntimesteps = 25 #100        # Number of timesteps in zonal transport computed / AD'ed part
+const Nspinup    = 100 #10000        # Number of timesteps that the model is spun up
 
-graph_directory = "run_abernathy_model_ad_spinup" * string(Nspinup) * "_" * string(Ntimesteps) * "steps/"
+graph_directory = "run_abernathy_model_ad_spinup" * string(Nspinup) * "_" * string(Ntimesteps) * "steps_gmredi/"
 
 #
 # Model parameters to set first:
@@ -188,11 +188,23 @@ function build_model(grid, Δt₀, parameters)
 
     set!(κz_field, κz_array)
 
-    horizontal_closure = HorizontalScalarDiffusivity(ν = νh, κ = κh)
+    κ_skew_field       = Field{Center, Center, Center}(grid)
+    κ_symmetric_field = Field{Center, Center, Center}(grid)
+
+    @allowscalar set!(κ_skew_field, 1e3)
+    @allowscalar set!(κ_symmetric_field, 1e3)
+
+    horizontal_closure = HorizontalScalarDiffusivity(ν = νh, κ = 0) # κh)
     vertical_closure = VerticalScalarDiffusivity(ν = νz, κ = κz_field)
 
     biharmonic_closure = ScalarBiharmonicDiffusivity(HorizontalFormulation(), Oceananigans.defaults.FloatType;
                                                      ν = 1e11)
+
+    gmredi_closure = IsopycnalSkewSymmetricDiffusivity(κ_skew=κ_skew_field, κ_symmetric=κ_symmetric_field)
+
+    #closure = (horizontal_closure, vertical_closure, biharmonic_closure)
+
+    closure = (horizontal_closure, vertical_closure, gmredi_closure)
 
     @info "Building a model..."
 
@@ -203,7 +215,7 @@ function build_model(grid, Δt₀, parameters)
         tracer_advection = WENO(order=3),
         buoyancy = SeawaterBuoyancy(equation_of_state=LinearEquationOfState(Oceananigans.defaults.FloatType)),
         coriolis = coriolis,
-        closure = (horizontal_closure, vertical_closure, biharmonic_closure),
+        closure = closure,
         tracers = (:T, :S, :e),
         boundary_conditions = (T = T_bcs, u = u_bcs, v = v_bcs),
         forcing = (T = FT,)
@@ -377,8 +389,8 @@ dΔz            = Enzyme.make_zero(Δz)
 tic = time()
 rspinup_reentrant_channel_model! = @compile raise_first=true raise=true sync=true  spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux)
 #restimate_tracer_error = @compile raise_first=true raise=true sync=true estimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-rdifferentiate_tracer_error = @compile raise_first=true raise=true sync=true  differentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld,
-                                                                                                        dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
+#rdifferentiate_tracer_error = @compile raise_first=true raise=true sync=true  differentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld,
+#                                                                                                        dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
 compile_toc = time() - tic
 
 @show compile_toc
@@ -406,11 +418,13 @@ rspinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress
 spinup_toc = time() - tic
 @show spinup_toc
 
+#=
+
 jldsave(filename; Nx, Ny, Nz,
                   bottom_height=convert(Array, interior(bottom_height)),
                   T_init=convert(Array, interior(model.tracers.T)),
                   S_init=convert(Array, interior(model.tracers.S)),
-                  ssh=convert(Array, interior(model.free_surface.η)),
+                  ssh=convert(Array, interior(model.free_surface.displacement)),
                   e_init=convert(Array, interior(model.tracers.e)),
                   u_wind_stress=convert(Array, interior(u_wind_stress)),
                   v_wind_stress=convert(Array, interior(v_wind_stress)),
@@ -418,22 +432,25 @@ jldsave(filename; Nx, Ny, Nz,
                   dkappaS_init=convert(Array, interior(dmodel.closure[2].κ[2])),
                   T_flux=convert(Array, interior(T_flux)))
 
+@allowscalar @show dmodel.closure[3]
+
 @info "Running for results, then profiling:"
 #output = restimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-dedν   = rdifferentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld, dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
-
-
-@info "Running the simulation for $Ntimesteps timesteps ... (if you want to run the forward code only, just run 'restimate_tracer_error')"
 tic = time()
-#Reactant.Profiler.@profile output = restimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-Reactant.Profiler.@profile rdifferentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld, dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
+dedν   = rdifferentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld, dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
 run_toc = time() - tic
 
-@info "Run toc gives you the combined time of the warmup run and the counted run from @profile, so it should be somewhat over 2x the time of profile"
+@info "Running the simulation for $Ntimesteps timesteps ... (if you want to run the forward code only, just run 'restimate_tracer_error')"
+#tic = time()
+#Reactant.Profiler.@profile output = restimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
+#Reactant.Profiler.@profile rdifferentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld, dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
+#run_toc = time() - tic
+
+#@info "Run toc gives you the combined time of the warmup run and the counted run from @profile, so it should be somewhat over 2x the time of profile"
 @show run_toc
 #@show output
 
-#@show dedν
+@show dedν
 
 filename = graph_directory * "data_final.jld2"
 
@@ -441,7 +458,7 @@ jldsave(filename; Nx, Ny, Nz,
                   T_final=convert(Array, interior(model.tracers.T)),
                   S_final=convert(Array, interior(model.tracers.S)),
                   e_final=convert(Array, interior(model.tracers.e)),
-                  ssh=convert(Array, interior(model.free_surface.η)),
+                  ssh=convert(Array, interior(model.free_surface.displacement)),
                   u=convert(Array, interior(model.velocities.u)),
                   v=convert(Array, interior(model.velocities.v)),
                   w=convert(Array, interior(model.velocities.w)),
@@ -456,6 +473,10 @@ jldsave(filename; Nx, Ny, Nz,
                   dkappaS_final=convert(Array, interior(dmodel.closure[2].κ[2])),
                   dT_flux=convert(Array, interior(dT_flux)))
 
+@allowscalar @show dmodel.closure[3]
+
+@allowscalar @show model.closure[3]
+=#
 #=
 @allowscalar @show argmax(abs.(dTᵢ))
 
