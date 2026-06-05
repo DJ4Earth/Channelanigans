@@ -17,6 +17,10 @@ using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity, HorizontalFormu
 using Oceananigans.Utils: get_active_cells_map
 using Oceananigans.Models: interior_tendency_kernel_parameters
 
+using Oceananigans.Fields: immersed_boundary_condition
+
+using Oceananigans.Utils: launch!
+
 using SeawaterPolynomials
 
 using CUDA
@@ -27,7 +31,9 @@ using Oceananigans.Architectures: ReactantState
 
 using Enzyme
 
-using Oceananigans.Models.HydrostaticFreeSurfaceModels: compute_tracer_tendencies!, compute_hydrostatic_tracer_tendencies!
+using Oceananigans.Models.HydrostaticFreeSurfaceModels: compute_tracer_tendencies!,
+                                                        compute_hydrostatic_tracer_tendencies!,
+                                                        compute_hydrostatic_free_surface_Gc!
 
 Oceananigans.defaults.FloatType = Float64
 
@@ -315,11 +321,51 @@ model         = build_model(grid, Δt₀, parameters)
 
 @info "Built $model."
 
+function my_compute_hydrostatic_tracer_tendencies!(model, kernel_parameters; active_cells_map=nothing)
+
+    arch = model.architecture
+    grid = model.grid
+
+    tracer_index = 1
+    tracer_name = :T
+
+    @show tracer_index, tracer_name
+
+    @inbounds c_tendency    = model.timestepper.Gⁿ[tracer_name]
+    @inbounds c_advection   = model.advection[tracer_name]
+    @inbounds c_forcing     = model.forcing[tracer_name]
+    @inbounds c_immersed_bc = immersed_boundary_condition(model.tracers[tracer_name])
+
+    args = tuple(Val(tracer_index),
+                    Val(tracer_name),
+                    c_advection,
+                    model.closure,
+                    c_immersed_bc,
+                    model.buoyancy,
+                    model.biogeochemistry,
+                    model.transport_velocities,
+                    model.free_surface,
+                    model.tracers,
+                    model.closure_fields,
+                    model.auxiliary_fields,
+                    model.clock,
+                    c_forcing)
+
+    launch!(arch, grid, kernel_parameters,
+            compute_hydrostatic_free_surface_Gc!,
+            c_tendency,
+            grid,
+            args;
+            active_cells_map)
+
+    return nothing
+end
+
 # Trying zonal transport:
 
 @info "Compiling the model run... (if you want to run forward code only, just compile 'estimate_tracer_error')"
 tic = time()
-rcompute_tracer_tendencies! = @compile raise_first=true raise=true sync=true  compute_hydrostatic_tracer_tendencies!(model, :xyz)
+rcompute_tracer_tendencies! = @compile raise_first=true raise=true sync=true  my_compute_hydrostatic_tracer_tendencies!(model, :xyz)
 compile_toc = time() - tic
 
 @show compile_toc
