@@ -14,6 +14,9 @@ using Oceananigans.OutputReaders: FieldTimeSeries
 using Oceananigans.Grids: xnode, ynode, znode
 using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity, HorizontalFormulation, IsopycnalSkewSymmetricDiffusivity
 
+using Oceananigans.Utils: get_active_cells_map
+using Oceananigans.Models: interior_tendency_kernel_parameters
+
 using SeawaterPolynomials
 
 using CUDA
@@ -23,6 +26,8 @@ using Oceananigans.Architectures: ReactantState
 #Reactant.set_default_backend("cpu")
 
 using Enzyme
+
+using Oceananigans.Models.HydrostaticFreeSurfaceModels: compute_tracer_tendencies!, compute_hydrostatic_tracer_tendencies!
 
 Oceananigans.defaults.FloatType = Float64
 
@@ -295,64 +300,6 @@ function spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_win
 end
 
 #####
-##### Forward simulation (not actually using the Simulation struct)
-#####
-
-function loop!(model)
-    Δt = model.clock.last_Δt
-    @trace mincut = true checkpointing = true track_numbers = false for i = 1:Ntimesteps
-        time_step!(model, Δt)
-    end
-    return nothing
-end
-
-function run_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, temp_flux)
-    # setting IC's and BC's:
-    set!(model.velocities.u.boundary_conditions.top.condition, u_wind_stress)
-    set!(model.velocities.v.boundary_conditions.top.condition, v_wind_stress)
-    set!(model.tracers.T, Tᵢ)
-    set!(model.tracers.S, Sᵢ)
-    set!(model.tracers.T.boundary_conditions.top.condition, temp_flux)
-
-    # Initialize the model
-    model.clock.iteration = 0
-    model.clock.time = 0
-
-    # Step it forward
-    loop!(model)
-
-    return nothing
-end
-
-function estimate_tracer_error(model, initial_temperature, initial_salinity, u_wind_stress, v_wind_stress, temp_flux, Δz, mld)
-    run_reentrant_channel_model!(model, initial_temperature, initial_salinity, u_wind_stress, v_wind_stress, temp_flux)
-    
-    Nx, Ny, Nz = size(model.grid)
-
-    # Compute the zonal transport:
-    zonal_transport = (model.velocities.u[x_midpoint,1:Ny,1:Nz] .* model.grid.Δyᵃᶜᵃ) .* Δz
-
-    return sum(zonal_transport) / 1e6 # Put it in Sverdrups
-end
-
-function differentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, temp_flux, Δz, mld,
-                                   dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dtemp_flux, dΔz, dmld)
-
-    dedν = autodiff(set_strong_zero(Enzyme.ReverseWithPrimal),
-                    estimate_tracer_error, Active,
-                    Duplicated(model, dmodel),
-                    Duplicated(Tᵢ, dTᵢ),
-                    Duplicated(Sᵢ, dSᵢ),
-                    Duplicated(u_wind_stress, du_wind_stress),
-                    Duplicated(v_wind_stress, dv_wind_stress),
-                    Duplicated(temp_flux, dtemp_flux),
-                    Duplicated(Δz, dΔz),
-                    Duplicated(mld, dmld))
-
-    return dedν
-end
-
-#####
 ##### Actually creating our model and using these functions to run it:
 #####
 
@@ -365,167 +312,23 @@ architecture = ReactantState()
 # Make the grid:
 grid          = make_grid(architecture, Nx, Ny, Nz, z_faces)
 model         = build_model(grid, Δt₀, parameters)
-T_flux        = T_flux_init(model.grid, parameters)
-u_wind_stress = u_wind_stress_init(model.grid, parameters)
-v_wind_stress = v_wind_stress_init(model.grid, parameters)
-Tᵢ, Sᵢ        = temperature_salinity_init(model.grid, parameters)
-mld           = Field{Center, Center, Nothing}(model.grid)
-Δz            = Reactant.ConcreteRArray(Δz)
 
 @info "Built $model."
-
-dmodel         = Enzyme.make_zero(model)
-dTᵢ            = Field{Center, Center, Center}(model.grid)
-dSᵢ            = Field{Center, Center, Center}(model.grid)
-du_wind_stress = Field{Face, Center, Nothing}(model.grid)
-dv_wind_stress = Field{Center, Face, Nothing}(model.grid)
-dT_flux        = Field{Center, Center, Nothing}(model.grid)
-dmld           = Field{Center, Center, Nothing}(model.grid)
-dΔz            = Enzyme.make_zero(Δz)
 
 # Trying zonal transport:
 
 @info "Compiling the model run... (if you want to run forward code only, just compile 'estimate_tracer_error')"
 tic = time()
-rspinup_reentrant_channel_model! = @compile raise_first=true raise=true sync=true  spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux)
-#restimate_tracer_error = @compile raise_first=true raise=true sync=true estimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-#rdifferentiate_tracer_error = @compile raise_first=true raise=true sync=true  differentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld,
-#                                                                                                        dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
+rcompute_tracer_tendencies! = @compile raise_first=true raise=true sync=true  compute_hydrostatic_tracer_tendencies!(model, :xyz)
 compile_toc = time() - tic
 
 @show compile_toc
 
 @info "Running the simulation..."
 
-using FileIO, JLD2
-
-filename = graph_directory * "data_init.jld2"
-
-if !isdir(graph_directory) Base.Filesystem.mkdir(graph_directory) end
-
-if isa(model.grid, ImmersedBoundaryGrid)
-    bottom_height = model.grid.immersed_boundary.bottom_height
-else
-    bottom_height = Field{Center, Center, Nothing}(model.grid)
-    set!(bottom_height, -Lz)
-end
 
 @info "Spinup the model for $Nspinup timesteps, save the T and S from this state:"
 tic = time()
-rspinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux)
-@allowscalar set!(Tᵢ, model.tracers.T)
-@allowscalar set!(Sᵢ, model.tracers.S)
+rcompute_tracer_tendencies!(model, :xyz)
 spinup_toc = time() - tic
 @show spinup_toc
-
-#=
-
-jldsave(filename; Nx, Ny, Nz,
-                  bottom_height=convert(Array, interior(bottom_height)),
-                  T_init=convert(Array, interior(model.tracers.T)),
-                  S_init=convert(Array, interior(model.tracers.S)),
-                  ssh=convert(Array, interior(model.free_surface.displacement)),
-                  e_init=convert(Array, interior(model.tracers.e)),
-                  u_wind_stress=convert(Array, interior(u_wind_stress)),
-                  v_wind_stress=convert(Array, interior(v_wind_stress)),
-                  dkappaT_init=convert(Array, interior(dmodel.closure[2].κ[1])),
-                  dkappaS_init=convert(Array, interior(dmodel.closure[2].κ[2])),
-                  T_flux=convert(Array, interior(T_flux)))
-
-@allowscalar @show dmodel.closure[3]
-
-@info "Running for results, then profiling:"
-#output = restimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-tic = time()
-dedν   = rdifferentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld, dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
-run_toc = time() - tic
-
-@info "Running the simulation for $Ntimesteps timesteps ... (if you want to run the forward code only, just run 'restimate_tracer_error')"
-#tic = time()
-#Reactant.Profiler.@profile output = restimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-#Reactant.Profiler.@profile rdifferentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld, dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
-#run_toc = time() - tic
-
-#@info "Run toc gives you the combined time of the warmup run and the counted run from @profile, so it should be somewhat over 2x the time of profile"
-@show run_toc
-#@show output
-
-@show dedν
-
-filename = graph_directory * "data_final.jld2"
-
-jldsave(filename; Nx, Ny, Nz,
-                  T_final=convert(Array, interior(model.tracers.T)),
-                  S_final=convert(Array, interior(model.tracers.S)),
-                  e_final=convert(Array, interior(model.tracers.e)),
-                  ssh=convert(Array, interior(model.free_surface.displacement)),
-                  u=convert(Array, interior(model.velocities.u)),
-                  v=convert(Array, interior(model.velocities.v)),
-                  w=convert(Array, interior(model.velocities.w)),
-                  mld=convert(Array, interior(mld)),
-                  #zonal_transport=convert(Float64, output),
-                  zonal_transport=convert(Float64, dedν[2]),
-                  du_wind_stress=convert(Array, interior(du_wind_stress)),
-                  dv_wind_stress=convert(Array, interior(dv_wind_stress)),
-                  dT=convert(Array, interior(dTᵢ)),
-                  dS=convert(Array, interior(dSᵢ)),
-                  dkappaT_final=convert(Array, interior(dmodel.closure[2].κ[1])),
-                  dkappaS_final=convert(Array, interior(dmodel.closure[2].κ[2])),
-                  dT_flux=convert(Array, interior(dT_flux)))
-
-@allowscalar @show dmodel.closure[3]
-
-@allowscalar @show model.closure[3]
-=#
-#=
-@allowscalar @show argmax(abs.(dTᵢ))
-
-#
-# Loop of FD results for comparison:
-#
-i_range = [21, 22, 23, 24, 25, 26, 27, 28]
-j_range = [45, 46, 47, 48, 49, 50, 51, 52]
-
-epsilon_range = [1e-2, 1e-4, 1e-6]
-
-for i = 21:28
-    for j = 45:52
-
-        @show i, j
-        @allowscalar @show dTᵢ[i, j, 1]
-
-        for eps in epsilon_range
-            # Reset everything to 0:
-            model_fd = build_model(grid, Δt₀, parameters)
-            
-            # Set new T and S init fields for FD:
-            Tᵢ_fd, Sᵢ_fd = temperature_salinity_init(model_fd.grid, parameters)
-
-            # Permute the model field at i,j,1
-            @allowscalar Tᵢ_fd[i, j, 1] = Tᵢ_fd[i, j, 1] + eps
-
-            outputP = restimate_tracer_error(model_fd, Tᵢ_fd, Sᵢ_fd, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-
-            # Reset everything to 0:
-            model_fd = build_model(grid, Δt₀, parameters)
-            
-            # Set new T and S init fields for FD:
-            Tᵢ_fd, Sᵢ_fd = temperature_salinity_init(model_fd.grid, parameters)
-
-            # Permute the model field at i,j,1
-            @allowscalar Tᵢ_fd[i, j, 1] = Tᵢ_fd[i, j, 1] - eps
-
-            outputM = restimate_tracer_error(model_fd, Tᵢ_fd, Sᵢ_fd, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-
-            dT_fd = (outputP - outputM) / (2eps)
-
-            @show eps, dT_fd
-
-            if i == 21
-                @show outputP, outputM
-            end
-        end
-    end
-end
-=#
-            
