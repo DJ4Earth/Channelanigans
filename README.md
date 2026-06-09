@@ -7,8 +7,8 @@ This is a special branch of the `Channelanigans` repo that is linked to the DJ4E
 To replicate the numerical examples in the paper featuring Oceananigans:
 
 1. Instantiate the environment with the given Project.toml and Manifest.toml files.
-2. Run `julia -O0 --project scripts/abernathy_channel.jl` to run the model with AD, producing results and storing them into data files.
-3. Run `julia -O0 --project scripts/makie_abernathy.jl` to produce plots from the produced data.
+2. Run `julia -O0 --project scripts/abernathey_channel.jl` to run the model with AD, producing results and storing them into data files.
+3. Run `julia -O0 --project scripts/makie_abernathey.jl` to produce plots from the produced data.
 
 You can change the number of timesteps in the model spinup and AD run in lines 36 and 37, respectively, of `abernathy_channel.jl` (Reactant requires the number of iterations to be hardcoded). This will also change the directory name where plots and data are stored.
 
