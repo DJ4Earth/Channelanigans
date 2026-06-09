@@ -424,7 +424,7 @@ dedν   = rdifferentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_s
 
 #@show output
 
-#@show dedν
+@show dedν
 
 filename = graph_directory * "data_final.jld2"
 
