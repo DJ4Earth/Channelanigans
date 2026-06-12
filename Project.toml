@@ -10,3 +10,7 @@ Reactant = "3c362404-f566-11ee-1572-e11a4b42c853"
 ReactantCore = "a3311ec8-5e00-46d5-b541-4f83e724a433"
 Reactant_jll = "0192cb87-2b54-54ad-80e0-3be72ad8a3c0"
 SeawaterPolynomials = "d496a93d-167e-4197-9f49-d3af4ff8fe40"
+
+
+[compat]
+CUDA = "6.0"
