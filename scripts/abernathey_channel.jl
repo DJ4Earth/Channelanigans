@@ -199,11 +199,11 @@ function build_model(grid, Δt₀, parameters)
 
     set!(κz_field, κz_array)
 
-    κ_skew_field       = zeros(Nx, Ny, Nz) #Field{Center, Center, Center}(grid)
-    κ_symmetric_field = zeros(Nx, Ny, Nz) #Field{Center, Center, Center}(grid)
+    κ_skew_field       = Field{Center, Center, Center}(grid)
+    κ_symmetric_field = Field{Center, Center, Center}(grid)
 
-    #@allowscalar set!(κ_skew_field, 1e3)
-    #@allowscalar set!(κ_symmetric_field, 1e3)
+    @allowscalar set!(κ_skew_field, 1e3)
+    @allowscalar set!(κ_symmetric_field, 1e3)
 
     horizontal_closure = HorizontalScalarDiffusivity(ν = νh, κ = 0) # κh)
     vertical_closure = VerticalScalarDiffusivity(ν = νz, κ = κz_field)
