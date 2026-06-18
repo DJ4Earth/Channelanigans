@@ -33,9 +33,12 @@ using Enzyme
 
 using Oceananigans.Models.HydrostaticFreeSurfaceModels: compute_tracer_tendencies!,
                                                         compute_hydrostatic_tracer_tendencies!,
-                                                        compute_hydrostatic_free_surface_Gc!
+                                                        compute_hydrostatic_free_surface_Gc!,
+                                                        hydrostatic_free_surface_tracer_tendency
 
 Oceananigans.defaults.FloatType = Float64
+
+using KernelAbstractions: @kernel, @index
 
 @info "To specify architecture uncomment line 'Reactant.set_default_backend(\"cpu\")' "
 #Reactant.set_default_backend("cpu")
@@ -182,127 +185,30 @@ function build_model(grid, Δt₀, parameters)
 
     # closure (moderately elevating scalar visc/diff)
 
-    κh = 5e-5 # [m²/s] horizontal diffusivity
-    νh = 500  # [m²/s] horizontal viscocity
-    κz = 5e-5 # [m²/s] vertical diffusivity
-    νz = 3e-3 # [m²/s] vertical viscocity
-
-    κz_field = Field{Center, Center, Center}(grid)
-    κz_array = zeros(Nx, Ny, Nz)
-
-    κz_add = 5e-5  # m² / s at surface
-    decay_scale = 5   # layers
-    for k in 1:Nz
-        taper = exp(- (k-1) / decay_scale)
-        κz_array[:,:,k] .= κz + κz_add * taper
-    end
-
-    set!(κz_field, κz_array)
-
-    κ_skew_field       = Field{Center, Center, Center}(grid)
+    κ_skew_field      = Field{Center, Center, Center}(grid)
     κ_symmetric_field = Field{Center, Center, Center}(grid)
 
     @allowscalar set!(κ_skew_field, 1e3)
     @allowscalar set!(κ_symmetric_field, 1e3)
 
-    horizontal_closure = HorizontalScalarDiffusivity(ν = νh, κ = 0) # κh)
-    vertical_closure = VerticalScalarDiffusivity(ν = νz, κ = κz_field)
-
-    biharmonic_closure = ScalarBiharmonicDiffusivity(HorizontalFormulation(), Oceananigans.defaults.FloatType;
-                                                     ν = 1e11)
-
     gmredi_closure = IsopycnalSkewSymmetricDiffusivity(κ_skew=κ_skew_field, κ_symmetric=κ_symmetric_field)
-
-    #closure = (horizontal_closure, vertical_closure, biharmonic_closure)
-
-    closure = (horizontal_closure, vertical_closure, gmredi_closure)
 
     @info "Building a model..."
 
     model = HydrostaticFreeSurfaceModel(
         grid;
         free_surface = SplitExplicitFreeSurface(substeps=10),
-        momentum_advection = WENO(order=3),
+        momentum_advection = nothing,
         tracer_advection = WENO(order=3),
-        buoyancy = SeawaterBuoyancy(equation_of_state=LinearEquationOfState(Oceananigans.defaults.FloatType)),
-        coriolis = coriolis,
-        closure = closure,
+        buoyancy = nothing,
+        coriolis = nothing,
+        closure = gmredi_closure,
         tracers = (:T, :S, :e),
-        boundary_conditions = (T = T_bcs, u = u_bcs, v = v_bcs),
-        forcing = (T = FT,)
     )
 
     model.clock.last_Δt = Δt₀
 
     return model
-end
-
-#####
-##### Special initial and boundary conditions
-#####
-
-# Temperature flux:
-function T_flux_init(grid, p)
-    @inline temp_flux_function(x, y) = ifelse(y < p.y_shutoff, p.Qᵀ * cos(3π * y / p.Ly), 0.0)
-    temp_flux = Field{Center, Center, Nothing}(grid)
-    @allowscalar set!(temp_flux, temp_flux_function)
-    return temp_flux
-end
-
-# wind stress:
-function u_wind_stress_init(grid, p)
-    @inline u_stress(x, y) = -p.τ * sin(π * y / p.Ly)
-    wind_stress = Field{Face, Center, Nothing}(grid)
-    @allowscalar set!(wind_stress, u_stress)
-    return wind_stress
-end
-
-function v_wind_stress_init(grid, p)
-    wind_stress = Field{Center, Face, Nothing}(grid)
-    @allowscalar set!(wind_stress, 0)
-    return wind_stress
-end
-
-# resting initial condition
-function temperature_salinity_init(grid, parameters)
-    # Adding some noise to temperature field:
-    ε(σ) = σ * randn()
-    Tᵢ_function(x, y, z) = parameters.ΔT * (exp(z / parameters.h) - exp(-Lz / parameters.h)) / (1 - exp(-Lz / parameters.h)) + ε(1e-8)
-    Tᵢ = Field{Center, Center, Center}(grid)
-    Sᵢ = Field{Center, Center, Center}(grid)
-    @allowscalar set!(Tᵢ, Tᵢ_function)
-    @allowscalar set!(Sᵢ, 35) # Initial Salinity
-    return Tᵢ, Sᵢ
-end
-
-#####
-##### Spin up (because step cound is hardcoded we need separate functions for each loop...)
-#####
-
-function spinup_loop!(model)
-    Δt = model.clock.last_Δt
-    @trace mincut = true track_numbers = false for i = 1:Nspinup
-        time_step!(model, Δt)
-    end
-    return nothing
-end
-
-function spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, temp_flux)
-    # setting IC's and BC's:
-    set!(model.velocities.u.boundary_conditions.top.condition, u_wind_stress)
-    set!(model.velocities.v.boundary_conditions.top.condition, v_wind_stress)
-    set!(model.tracers.T, Tᵢ)
-    set!(model.tracers.S, Sᵢ)
-    set!(model.tracers.T.boundary_conditions.top.condition, temp_flux)
-
-    # Initialize the model
-    model.clock.iteration = 0
-    model.clock.time = 0
-
-    # Step it forward
-    spinup_loop!(model)
-
-    return nothing
 end
 
 #####
@@ -352,13 +258,19 @@ function my_compute_hydrostatic_tracer_tendencies!(model, kernel_parameters; act
                     c_forcing)
 
     launch!(arch, grid, kernel_parameters,
-            compute_hydrostatic_free_surface_Gc!,
+            my_compute_hydrostatic_free_surface_Gc!,
             c_tendency,
             grid,
             args;
             active_cells_map)
 
     return nothing
+end
+
+""" Calculate the right-hand-side of the tracer advection-diffusion equation. """
+@kernel function my_compute_hydrostatic_free_surface_Gc!(Gc, grid, args)
+    i, j, k = @index(Global, NTuple)
+    @inbounds Gc[i, j, k] = hydrostatic_free_surface_tracer_tendency(i, j, k, grid, args...)
 end
 
 # Trying zonal transport:
