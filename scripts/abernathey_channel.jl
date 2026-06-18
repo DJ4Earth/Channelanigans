@@ -15,11 +15,13 @@ using Oceananigans.Grids: xnode, ynode, znode
 using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity, HorizontalFormulation, IsopycnalSkewSymmetricDiffusivity
 
 using Oceananigans.Utils: get_active_cells_map
-using Oceananigans.Models: interior_tendency_kernel_parameters
+using Oceananigans.Models: interior_tendency_kernel_parameters, surface_kernel_parameters
 
 using Oceananigans.Fields: immersed_boundary_condition
 
 using Oceananigans.Utils: launch!
+
+using Oceananigans.TimeSteppers: update_state!
 
 using SeawaterPolynomials
 
@@ -34,7 +36,10 @@ using Enzyme
 using Oceananigans.Models.HydrostaticFreeSurfaceModels: compute_tracer_tendencies!,
                                                         compute_hydrostatic_tracer_tendencies!,
                                                         compute_hydrostatic_free_surface_Gc!,
-                                                        hydrostatic_free_surface_tracer_tendency
+                                                        hydrostatic_free_surface_tracer_tendency,
+                                                        update_vertical_velocities!,
+                                                        compute_w_from_continuity!,
+                                                        _compute_w_from_continuity!
 
 Oceananigans.defaults.FloatType = Float64
 
@@ -135,7 +140,7 @@ function make_grid(architecture, Nx, Ny, Nz, z_faces)
     set!(ridge, wall_function)
 
     grid = ImmersedBoundaryGrid(underlying_grid, GridFittedBottom(ridge))
-    return grid
+    return grid.underlying_grid
 end
 
 #####
@@ -225,68 +230,33 @@ architecture = ReactantState()
 grid          = make_grid(architecture, Nx, Ny, Nz, z_faces)
 model         = build_model(grid, Δt₀, parameters)
 
-@info "Built $model."
+@show surface_kernel_parameters(model.grid)
 
-function my_compute_hydrostatic_tracer_tendencies!(model, kernel_parameters; active_cells_map=nothing)
+my_compute_w_from_continuity!(velocities, grid; parameters = surface_kernel_parameters(grid)) =
+    launch!(grid.architecture, grid, parameters, _compute_w_from_continuity!, velocities, grid)
 
-    arch = model.architecture
-    grid = model.grid
+#=
+@kernel function _my_compute_w_from_continuity!(U, grid)
+    i, j = @index(Global, NTuple)
 
-    tracer_index = 1
-    tracer_name = :T
+    u, v, w = U
+    wᵏ = zero(eltype(w))
+    @inbounds w[i, j, 1] = wᵏ
 
-    @show tracer_index, tracer_name
+    Nz = size(grid, 3)
+    for k in 2:Nz+1
+        δ = flux_div_xyᶜᶜᶜ(i, j, k-1, grid, u, v) * Az⁻¹ᶜᶜᶜ(i, j, k-1, grid)
+        w̃ = Δrᶜᶜᶜ(i, j, k-1, grid) * ∂t_σ(i, j, k-1, grid)
 
-    @inbounds c_tendency    = model.timestepper.Gⁿ[tracer_name]
-    @inbounds c_advection   = model.advection[tracer_name]
-    @inbounds c_forcing     = model.forcing[tracer_name]
-    @inbounds c_immersed_bc = immersed_boundary_condition(model.tracers[tracer_name])
+        # We do not account for grid changes in immersed cells
+        immersed = immersed_cell(i, j, k-1, grid)
+        w̃ = ifelse(immersed, zero(grid), w̃)
 
-    args = tuple(Val(tracer_index),
-                    Val(tracer_name),
-                    c_advection,
-                    model.closure,
-                    c_immersed_bc,
-                    model.buoyancy,
-                    model.biogeochemistry,
-                    model.transport_velocities,
-                    model.free_surface,
-                    model.tracers,
-                    model.closure_fields,
-                    model.auxiliary_fields,
-                    model.clock,
-                    c_forcing)
-
-    launch!(arch, grid, kernel_parameters,
-            my_compute_hydrostatic_free_surface_Gc!,
-            c_tendency,
-            grid,
-            args;
-            active_cells_map)
-
-    return nothing
+        wᵏ -= (δ + w̃)
+        @inbounds w[i, j, k] = wᵏ
+    end
 end
+=#
 
-""" Calculate the right-hand-side of the tracer advection-diffusion equation. """
-@kernel function my_compute_hydrostatic_free_surface_Gc!(Gc, grid, args)
-    i, j, k = @index(Global, NTuple)
-    @inbounds Gc[i, j, k] = hydrostatic_free_surface_tracer_tendency(i, j, k, grid, args...)
-end
-
-# Trying zonal transport:
-
-@info "Compiling the model run... (if you want to run forward code only, just compile 'estimate_tracer_error')"
-tic = time()
-rcompute_tracer_tendencies! = @compile raise_first=true raise=true sync=true  my_compute_hydrostatic_tracer_tendencies!(model, :xyz)
-compile_toc = time() - tic
-
-@show compile_toc
-
-@info "Running the simulation..."
-
-
-@info "Spinup the model for $Nspinup timesteps, save the T and S from this state:"
-tic = time()
-rcompute_tracer_tendencies!(model, :xyz)
-spinup_toc = time() - tic
-@show spinup_toc
+parameters = Oceananigans.Utils.KernelParameters{(86, 166), (-3, -3)}()
+my_compute_w_from_continuity!(model.velocities, model.grid; parameters)
