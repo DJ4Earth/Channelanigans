@@ -50,7 +50,7 @@ using KernelAbstractions: @kernel, @index
 
 using Enzyme
 
-Oceananigans.defaults.FloatType = Float64
+#Oceananigans.defaults.FloatType = Float64
 
 const Ntimesteps = 25 #100        # Number of timesteps in zonal transport computed / AD'ed part
 const Nspinup    = 100 #10000        # Number of timesteps that the model is spun up
@@ -127,7 +127,7 @@ end
 
 function make_grid(architecture, Nx, Ny, Nz, z_faces)
 
-    underlying_grid = RectilinearGrid(architecture,
+    underlying_grid = RectilinearGrid(architecture;
         topology = (Periodic, Bounded, Bounded),
         size = (Nx, Ny, Nz),
         halo = (halo_size, halo_size, halo_size),
@@ -233,30 +233,24 @@ model         = build_model(grid, Δt₀, parameters)
 @show surface_kernel_parameters(model.grid)
 
 my_compute_w_from_continuity!(velocities, grid; parameters = surface_kernel_parameters(grid)) =
-    launch!(grid.architecture, grid, parameters, _compute_w_from_continuity!, velocities, grid)
+    launch!(grid.architecture, grid, parameters, _my_compute_w_from_continuity!, velocities, grid)
 
-#=
+using Oceananigans.Operators: flux_div_xyᶜᶜᶜ, Az⁻¹ᶜᶜᶜ, Δrᶜᶜᶜ, ∂t_σ
+using Oceananigans.ImmersedBoundaries: immersed_cell
+
 @kernel function _my_compute_w_from_continuity!(U, grid)
     i, j = @index(Global, NTuple)
 
     u, v, w = U
-    wᵏ = zero(eltype(w))
-    @inbounds w[i, j, 1] = wᵏ
+    @inbounds w[i, j, 1] = 0
 
-    Nz = size(grid, 3)
-    for k in 2:Nz+1
-        δ = flux_div_xyᶜᶜᶜ(i, j, k-1, grid, u, v) * Az⁻¹ᶜᶜᶜ(i, j, k-1, grid)
-        w̃ = Δrᶜᶜᶜ(i, j, k-1, grid) * ∂t_σ(i, j, k-1, grid)
-
-        # We do not account for grid changes in immersed cells
-        immersed = immersed_cell(i, j, k-1, grid)
-        w̃ = ifelse(immersed, zero(grid), w̃)
-
-        wᵏ -= (δ + w̃)
-        @inbounds w[i, j, k] = wᵏ
+    for k in 2:3
+        w̃ = ∂t_σ(i, j, k-1, grid)
+        
+        @inbounds w[i, j, k] = w̃
     end
 end
-=#
+
 
 parameters = Oceananigans.Utils.KernelParameters{(86, 166), (-3, -3)}()
 my_compute_w_from_continuity!(model.velocities, model.grid; parameters)
