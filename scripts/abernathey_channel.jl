@@ -133,13 +133,8 @@ function make_grid(architecture, Nx, Ny, Nz, z_faces)
         x = (0, Lx),
         y = (0, Ly),
         z = z_faces)
-
-    # Make into a ridge array:
-    ridge = Field{Center, Center, Nothing}(underlying_grid)
-    set!(ridge, wall_function)
-
-    grid = ImmersedBoundaryGrid(underlying_grid, GridFittedBottom(ridge))
-    return grid.underlying_grid
+        
+    return underlying_grid
 end
 
 #####
@@ -165,11 +160,11 @@ my_compute_w_from_continuity!(w, grid; parameters = surface_kernel_parameters(gr
     i, j = @index(Global, NTuple)
 
     @inbounds w[i, j, 1] = 0
-    @inbounds w[i, j, 2] = zero(grid)
+    @inbounds w[i, j, 2] = zero(eltype(grid))
 end
 
 
-@show @which ∂t_σ(1, 1, 1, grid)
+@show eltype(grid)
 
-parameters = Oceananigans.Utils.KernelParameters{(86, 166), (-3, -3)}()
+parameters = Oceananigans.Utils.KernelParameters{(1, 1), (-3, -3)}()
 my_compute_w_from_continuity!(w, grid; parameters)
