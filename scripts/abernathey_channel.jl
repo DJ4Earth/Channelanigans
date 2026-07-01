@@ -43,7 +43,13 @@ using Oceananigans.Models.HydrostaticFreeSurfaceModels: compute_tracer_tendencie
 
 Oceananigans.defaults.FloatType = Float64
 
+
+using Oceananigans.Operators: flux_div_xyᶜᶜᶜ, Az⁻¹ᶜᶜᶜ, Δrᶜᶜᶜ, ∂t_σ
+using Oceananigans.ImmersedBoundaries: immersed_cell
+
 using KernelAbstractions: @kernel, @index
+
+using InteractiveUtils
 
 @info "To specify architecture uncomment line 'Reactant.set_default_backend(\"cpu\")' "
 #Reactant.set_default_backend("cpu")
@@ -111,13 +117,6 @@ parameters = (
     λt = 7.0days                         # relaxation time scale [s]
 )
 
-# full ridge function:
-function ridge_function(x, y)
-    zonal = (Lz+3000)exp(-(x - Lx/2)^2/(1e6kilometers))
-    gap   = 1 - 0.5(tanh((y - (Ly/6))/1e5) - tanh((y - (Ly/2))/1e5))
-    return zonal * gap - Lz
-end
-
 function wall_function(x, y)
     zonal = (x > 470kilometers) && (x < 530kilometers)
     gap   = (y < 400kilometers) || (y > 1000kilometers)
@@ -144,79 +143,6 @@ function make_grid(architecture, Nx, Ny, Nz, z_faces)
 end
 
 #####
-##### Model construction:
-#####
-
-function build_model(grid, Δt₀, parameters)
-
-    temperature_flux_bc = FluxBoundaryCondition(Field{Center, Center, Nothing}(grid))
-
-    u_stress_bc = FluxBoundaryCondition(Field{Face, Center, Nothing}(grid))
-    v_stress_bc = FluxBoundaryCondition(Field{Center, Face, Nothing}(grid))
-
-    @inline u_drag(i, j, grid, clock, model_fields, p) = @inbounds -p.μ * p.Lz * model_fields.u[i, j, 1]
-    @inline v_drag(i, j, grid, clock, model_fields, p) = @inbounds -p.μ * p.Lz * model_fields.v[i, j, 1]
-
-    u_drag_bc = FluxBoundaryCondition(u_drag, discrete_form = true, parameters = parameters)
-    v_drag_bc = FluxBoundaryCondition(v_drag, discrete_form = true, parameters = parameters)
-
-    T_bcs = FieldBoundaryConditions(top = temperature_flux_bc)
-
-    u_bcs = FieldBoundaryConditions(top = u_stress_bc, bottom = u_drag_bc)
-    v_bcs = FieldBoundaryConditions(top = v_stress_bc, bottom = v_drag_bc)
-
-    #####
-    ##### Coriolis
-    #####
-    coriolis = BetaPlane(f₀ = f, β = β)
-
-    #####
-    ##### Forcing and initial condition
-    #####
-    @inline initial_temperature(z, p) = p.ΔT * (exp(z / p.h) - exp(-p.Lz / p.h)) / (1 - exp(-p.Lz / p.h))
-    @inline mask(y, p)                = max(0.0, y - p.y_sponge) / (Ly - p.y_sponge)
-
-    @inline function temperature_relaxation(i, j, k, grid, clock, model_fields, p)
-        timescale = p.λt
-        y = ynode(j, grid, Center())
-        z = znode(k, grid, Center())
-        target_T = initial_temperature(z, p)
-        T = @inbounds model_fields.T[i, j, k]
-    
-        return -1 / timescale * mask(y, p) * (T - target_T)
-    end
-    
-    FT = Forcing(temperature_relaxation, discrete_form = true, parameters = parameters)
-
-    # closure (moderately elevating scalar visc/diff)
-
-    κ_skew_field      = Field{Center, Center, Center}(grid)
-    κ_symmetric_field = Field{Center, Center, Center}(grid)
-
-    @allowscalar set!(κ_skew_field, 1e3)
-    @allowscalar set!(κ_symmetric_field, 1e3)
-
-    gmredi_closure = IsopycnalSkewSymmetricDiffusivity(κ_skew=κ_skew_field, κ_symmetric=κ_symmetric_field)
-
-    @info "Building a model..."
-
-    model = HydrostaticFreeSurfaceModel(
-        grid;
-        free_surface = SplitExplicitFreeSurface(substeps=10),
-        momentum_advection = nothing,
-        tracer_advection = WENO(order=3),
-        buoyancy = nothing,
-        coriolis = nothing,
-        closure = gmredi_closure,
-        tracers = (:T, :S, :e),
-    )
-
-    model.clock.last_Δt = Δt₀
-
-    return model
-end
-
-#####
 ##### Actually creating our model and using these functions to run it:
 #####
 
@@ -228,29 +154,22 @@ architecture = ReactantState()
 
 # Make the grid:
 grid          = make_grid(architecture, Nx, Ny, Nz, z_faces)
-model         = build_model(grid, Δt₀, parameters)
 
-@show surface_kernel_parameters(model.grid)
+w = Field{Center, Center, Face}(grid)
 
-my_compute_w_from_continuity!(velocities, grid; parameters = surface_kernel_parameters(grid)) =
-    launch!(grid.architecture, grid, parameters, _my_compute_w_from_continuity!, velocities, grid)
+my_compute_w_from_continuity!(w, grid; parameters = surface_kernel_parameters(grid)) =
+    launch!(grid.architecture, grid, parameters, _my_compute_w_from_continuity!, w, grid)
 
-using Oceananigans.Operators: flux_div_xyᶜᶜᶜ, Az⁻¹ᶜᶜᶜ, Δrᶜᶜᶜ, ∂t_σ
-using Oceananigans.ImmersedBoundaries: immersed_cell
 
-@kernel function _my_compute_w_from_continuity!(U, grid)
+@kernel function _my_compute_w_from_continuity!(w, grid)
     i, j = @index(Global, NTuple)
 
-    u, v, w = U
     @inbounds w[i, j, 1] = 0
-
-    for k in 2:3
-        w̃ = ∂t_σ(i, j, k-1, grid)
-        
-        @inbounds w[i, j, k] = w̃
-    end
+    @inbounds w[i, j, 2] = zero(grid)
 end
 
 
+@show @which ∂t_σ(1, 1, 1, grid)
+
 parameters = Oceananigans.Utils.KernelParameters{(86, 166), (-3, -3)}()
-my_compute_w_from_continuity!(model.velocities, model.grid; parameters)
+my_compute_w_from_continuity!(w, grid; parameters)
