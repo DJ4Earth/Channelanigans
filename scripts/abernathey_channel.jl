@@ -150,21 +150,18 @@ architecture = ReactantState()
 # Make the grid:
 grid          = make_grid(architecture, Nx, Ny, Nz, z_faces)
 
-w = Field{Center, Center, Face}(grid)
-
-my_compute_w_from_continuity!(w, grid; parameters = surface_kernel_parameters(grid)) =
-    launch!(grid.architecture, grid, parameters, _my_compute_w_from_continuity!, w, grid)
+my_compute_w_from_continuity!(grid; parameters = surface_kernel_parameters(grid)) =
+    launch!(grid.architecture, grid, parameters, _my_compute_w_from_continuity!, grid)
 
 
-@kernel function _my_compute_w_from_continuity!(w, grid)
+@kernel function _my_compute_w_from_continuity!(grid)
     i, j = @index(Global, NTuple)
 
-    @inbounds w[i, j, 1] = 0
-    @inbounds w[i, j, 2] = zero(eltype(grid))
+    zero(eltype(grid))
 end
 
 
 @show eltype(grid)
 
 parameters = Oceananigans.Utils.KernelParameters{(1, 1), (-3, -3)}()
-my_compute_w_from_continuity!(w, grid; parameters)
+my_compute_w_from_continuity!(grid; parameters)
