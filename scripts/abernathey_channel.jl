@@ -161,7 +161,33 @@ my_compute_w_from_continuity!(grid; parameters = surface_kernel_parameters(grid)
 end
 
 
+@show @which eltype(grid)
 @show eltype(grid)
 
 parameters = Oceananigans.Utils.KernelParameters{(1, 1), (-3, -3)}()
 my_compute_w_from_continuity!(grid; parameters)
+
+#=
+arch = ReactantState()
+
+resolution = 3 // 2        # degrees
+Nx = 360 ÷ resolution      # number of longitude points
+Ny = 170 ÷ resolution      # number of latitude points (avoiding poles)
+Nz = 10                    # number of vertical levels
+size = (Nx, Ny, Nz)
+halo = (7, 7, 7)           # halo size for higher-order advection schemes
+H = 5000                   # domain depth [m]
+latitude = (-85, 85)       # latitude range (avoiding poles for lat-lon grid)
+longitude = (0, 360)       # longitude range
+z = (-H, 0) 
+
+lat_lon_grid = LatitudeLongitudeGrid(arch; size, halo, latitude, longitude, z)
+
+@show @which eltype(lat_lon_grid)
+@show eltype(lat_lon_grid)
+
+
+parameters = Oceananigans.Utils.KernelParameters{(1, 1), (-3, -3)}()
+my_compute_w_from_continuity!(lat_lon_grid; parameters)
+
+=#
