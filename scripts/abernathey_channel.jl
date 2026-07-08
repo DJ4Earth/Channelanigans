@@ -39,7 +39,10 @@ using Oceananigans.Models.HydrostaticFreeSurfaceModels: compute_tracer_tendencie
                                                         hydrostatic_free_surface_tracer_tendency,
                                                         update_vertical_velocities!,
                                                         compute_w_from_continuity!,
-                                                        _compute_w_from_continuity!
+                                                        _compute_w_from_continuity!,
+                                                        diffusivity_kernel_parameters,
+                                                        compute_closure_fields!
+
 
 Oceananigans.defaults.FloatType = Float64
 
@@ -230,27 +233,10 @@ architecture = ReactantState()
 grid          = make_grid(architecture, Nx, Ny, Nz, z_faces)
 model         = build_model(grid, Δt₀, parameters)
 
-@show surface_kernel_parameters(model.grid)
-
-my_compute_w_from_continuity!(velocities, grid; parameters = surface_kernel_parameters(grid)) =
-    launch!(grid.architecture, grid, parameters, _my_compute_w_from_continuity!, velocities, grid)
-
 using Oceananigans.Operators: flux_div_xyᶜᶜᶜ, Az⁻¹ᶜᶜᶜ, Δrᶜᶜᶜ, ∂t_σ
 using Oceananigans.ImmersedBoundaries: immersed_cell
 
-@kernel function _my_compute_w_from_continuity!(U, grid)
-    i, j = @index(Global, NTuple)
 
-    u, v, w = U
-    @inbounds w[i, j, 1] = 0
+κ_params = diffusivity_kernel_parameters(grid)
 
-    for k in 2:3
-        w̃ = ∂t_σ(i, j, k-1, grid)
-        
-        @inbounds w[i, j, k] = w̃
-    end
-end
-
-
-parameters = Oceananigans.Utils.KernelParameters{(86, 166), (-3, -3)}()
-my_compute_w_from_continuity!(model.velocities, model.grid; parameters)
+compute_closure_fields!(model.closure_fields, model.closure, model, parameters=κ_params)
