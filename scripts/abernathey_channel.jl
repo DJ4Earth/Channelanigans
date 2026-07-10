@@ -236,7 +236,44 @@ model         = build_model(grid, Δt₀, parameters)
 using Oceananigans.Operators: flux_div_xyᶜᶜᶜ, Az⁻¹ᶜᶜᶜ, Δrᶜᶜᶜ, ∂t_σ
 using Oceananigans.ImmersedBoundaries: immersed_cell
 
+using Oceananigans.TurbulenceClosures: buoyancy_tracers, buoyancy_force, compute_tapered_R₃₃!, compute_eddy_velocities!, getclosure,
+                                                                        isopycnal_rotation_tensor_zz_ccf, tapering_factorᶜᶜᶠ
 
-κ_params = diffusivity_kernel_parameters(grid)
+using Adapt
+using InteractiveUtils
 
-compute_closure_fields!(model.closure_fields, model.closure, model, parameters=κ_params)
+function my_compute_closure_fields!(closure, model; parameters = :xyz)
+
+    arch = model.architecture
+    grid = model.grid
+
+    @show @which getclosure(1, 1, closure)
+
+    launch!(arch, grid, parameters,
+            my_compute_tapered_R₃₃!, grid, closure)
+
+    return nothing
+end
+
+@kernel function my_compute_tapered_R₃₃!(grid, closure)
+    i, j, k, = @index(Global, NTuple)
+
+    closure = getclosure(i, j, closure)
+end
+
+
+@show model.closure.κ_skew.grid
+
+@show typeof(model.closure.κ_skew.grid)
+
+@show typeof(model.grid)
+
+#to = model.closure.κ_skew.data
+#κ_skew_field_new = Field{Center, Center, Center}(grid)
+#@which Adapt.adapt_structure(to, model.closure.κ_skew)
+
+κ_params = Oceananigans.Utils.KernelParameters{(3, 3, 1), (-1, -1, 0)}()
+
+@show κ_params
+
+my_compute_closure_fields!(model.closure, model, parameters=κ_params)
