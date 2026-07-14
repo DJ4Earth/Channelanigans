@@ -33,13 +33,16 @@ using Oceananigans.Architectures: ReactantState
 
 using Enzyme
 
+using Oceananigans.Models: interior_tendency_kernel_parameters
+
 using Oceananigans.Models.HydrostaticFreeSurfaceModels: compute_tracer_tendencies!,
                                                         compute_hydrostatic_tracer_tendencies!,
                                                         compute_hydrostatic_free_surface_Gc!,
                                                         hydrostatic_free_surface_tracer_tendency,
                                                         update_vertical_velocities!,
                                                         compute_w_from_continuity!,
-                                                        _compute_w_from_continuity!
+                                                        _compute_w_from_continuity!,
+                                                        compute_hydrostatic_momentum_tendencies!
 
 Oceananigans.defaults.FloatType = Float64
 
@@ -258,5 +261,6 @@ my_compute_w_from_continuity!(velocities, grid; parameters = surface_kernel_para
 end
 =#
 
-parameters = Oceananigans.Utils.KernelParameters{(86, 166), (-3, -3)}()
-my_compute_w_from_continuity!(model.velocities, model.grid; parameters)
+# Get this one to work:
+kernel_parameters = interior_tendency_kernel_parameters(architecture, grid)
+compute_hydrostatic_momentum_tendencies!(model, model.velocities, kernel_parameters; active_cells_map=nothing)
