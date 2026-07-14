@@ -12,7 +12,7 @@ using Oceananigans
 using Oceananigans.Units
 using Oceananigans.OutputReaders: FieldTimeSeries
 using Oceananigans.Grids: xnode, ynode, znode
-using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity, HorizontalFormulation
+using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity, HorizontalFormulation, IsopycnalSkewSymmetricDiffusivity
 
 using SeawaterPolynomials
 
@@ -194,6 +194,14 @@ function build_model(grid, Δt₀, parameters)
     biharmonic_closure = ScalarBiharmonicDiffusivity(HorizontalFormulation(), Oceananigans.defaults.FloatType;
                                                      ν = 1e11)
 
+    κ_skew_field      = Field{Center, Center, Center}(grid)
+    κ_symmetric_field = Field{Center, Center, Center}(grid)
+
+    @allowscalar set!(κ_skew_field, 1e3)
+    @allowscalar set!(κ_symmetric_field, 1e3)
+
+    gmredi_closure = IsopycnalSkewSymmetricDiffusivity(κ_skew=κ_skew_field, κ_symmetric=κ_symmetric_field)
+
     @info "Building a model..."
 
     model = HydrostaticFreeSurfaceModel(
@@ -203,7 +211,7 @@ function build_model(grid, Δt₀, parameters)
         tracer_advection = WENO(order=3),
         buoyancy = SeawaterBuoyancy(equation_of_state=LinearEquationOfState(Oceananigans.defaults.FloatType)),
         coriolis = coriolis,
-        closure = (horizontal_closure, vertical_closure, biharmonic_closure),
+        closure = (horizontal_closure, vertical_closure, gmredi_closure),
         tracers = (:T, :S, :e),
         boundary_conditions = (T = T_bcs, u = u_bcs, v = v_bcs),
         forcing = (T = FT,)
@@ -406,17 +414,7 @@ rspinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress
 spinup_toc = time() - tic
 @show spinup_toc
 
-jldsave(filename; Nx, Ny, Nz,
-                  bottom_height=convert(Array, interior(bottom_height)),
-                  T_init=convert(Array, interior(model.tracers.T)),
-                  S_init=convert(Array, interior(model.tracers.S)),
-                  ssh=convert(Array, interior(model.free_surface.η)),
-                  e_init=convert(Array, interior(model.tracers.e)),
-                  u_wind_stress=convert(Array, interior(u_wind_stress)),
-                  v_wind_stress=convert(Array, interior(v_wind_stress)),
-                  dkappaT_init=convert(Array, interior(dmodel.closure[2].κ[1])),
-                  dkappaS_init=convert(Array, interior(dmodel.closure[2].κ[2])),
-                  T_flux=convert(Array, interior(T_flux)))
+
 
 @info "Running for results, then profiling:"
 #output = restimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
@@ -431,80 +429,4 @@ run_toc = time() - tic
 
 @info "Run toc gives you the combined time of the warmup run and the counted run from @profile, so it should be somewhat over 2x the time of profile"
 @show run_toc
-#@show output
-
-#@show dedν
-
-filename = graph_directory * "data_final.jld2"
-
-jldsave(filename; Nx, Ny, Nz,
-                  T_final=convert(Array, interior(model.tracers.T)),
-                  S_final=convert(Array, interior(model.tracers.S)),
-                  e_final=convert(Array, interior(model.tracers.e)),
-                  ssh=convert(Array, interior(model.free_surface.η)),
-                  u=convert(Array, interior(model.velocities.u)),
-                  v=convert(Array, interior(model.velocities.v)),
-                  w=convert(Array, interior(model.velocities.w)),
-                  mld=convert(Array, interior(mld)),
-                  #zonal_transport=convert(Float64, output),
-                  zonal_transport=convert(Float64, dedν[2]),
-                  du_wind_stress=convert(Array, interior(du_wind_stress)),
-                  dv_wind_stress=convert(Array, interior(dv_wind_stress)),
-                  dT=convert(Array, interior(dTᵢ)),
-                  dS=convert(Array, interior(dSᵢ)),
-                  dkappaT_final=convert(Array, interior(dmodel.closure[2].κ[1])),
-                  dkappaS_final=convert(Array, interior(dmodel.closure[2].κ[2])),
-                  dT_flux=convert(Array, interior(dT_flux)))
-
-#=
-@allowscalar @show argmax(abs.(dTᵢ))
-
-#
-# Loop of FD results for comparison:
-#
-i_range = [21, 22, 23, 24, 25, 26, 27, 28]
-j_range = [45, 46, 47, 48, 49, 50, 51, 52]
-
-epsilon_range = [1e-2, 1e-4, 1e-6]
-
-for i = 21:28
-    for j = 45:52
-
-        @show i, j
-        @allowscalar @show dTᵢ[i, j, 1]
-
-        for eps in epsilon_range
-            # Reset everything to 0:
-            model_fd = build_model(grid, Δt₀, parameters)
-            
-            # Set new T and S init fields for FD:
-            Tᵢ_fd, Sᵢ_fd = temperature_salinity_init(model_fd.grid, parameters)
-
-            # Permute the model field at i,j,1
-            @allowscalar Tᵢ_fd[i, j, 1] = Tᵢ_fd[i, j, 1] + eps
-
-            outputP = restimate_tracer_error(model_fd, Tᵢ_fd, Sᵢ_fd, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-
-            # Reset everything to 0:
-            model_fd = build_model(grid, Δt₀, parameters)
-            
-            # Set new T and S init fields for FD:
-            Tᵢ_fd, Sᵢ_fd = temperature_salinity_init(model_fd.grid, parameters)
-
-            # Permute the model field at i,j,1
-            @allowscalar Tᵢ_fd[i, j, 1] = Tᵢ_fd[i, j, 1] - eps
-
-            outputM = restimate_tracer_error(model_fd, Tᵢ_fd, Sᵢ_fd, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-
-            dT_fd = (outputP - outputM) / (2eps)
-
-            @show eps, dT_fd
-
-            if i == 21
-                @show outputP, outputM
-            end
-        end
-    end
-end
-=#
-            
+         
