@@ -233,34 +233,6 @@ architecture = ReactantState()
 grid          = make_grid(architecture, Nx, Ny, Nz, z_faces)
 model         = build_model(grid, Δt₀, parameters)
 
-@show surface_kernel_parameters(model.grid)
-
-my_compute_w_from_continuity!(velocities, grid; parameters = surface_kernel_parameters(grid)) =
-    launch!(grid.architecture, grid, parameters, _compute_w_from_continuity!, velocities, grid)
-
-#=
-@kernel function _my_compute_w_from_continuity!(U, grid)
-    i, j = @index(Global, NTuple)
-
-    u, v, w = U
-    wᵏ = zero(eltype(w))
-    @inbounds w[i, j, 1] = wᵏ
-
-    Nz = size(grid, 3)
-    for k in 2:Nz+1
-        δ = flux_div_xyᶜᶜᶜ(i, j, k-1, grid, u, v) * Az⁻¹ᶜᶜᶜ(i, j, k-1, grid)
-        w̃ = Δrᶜᶜᶜ(i, j, k-1, grid) * ∂t_σ(i, j, k-1, grid)
-
-        # We do not account for grid changes in immersed cells
-        immersed = immersed_cell(i, j, k-1, grid)
-        w̃ = ifelse(immersed, zero(grid), w̃)
-
-        wᵏ -= (δ + w̃)
-        @inbounds w[i, j, k] = wᵏ
-    end
-end
-=#
-
 # Get this one to work:
 kernel_parameters = interior_tendency_kernel_parameters(architecture, grid)
 compute_hydrostatic_momentum_tendencies!(model, model.velocities, kernel_parameters; active_cells_map=nothing)
