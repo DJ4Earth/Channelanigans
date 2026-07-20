@@ -29,14 +29,17 @@ Oceananigans.defaults.FloatType = Float64
 @info "To specify architecture uncomment line 'Reactant.set_default_backend(\"cpu\")' "
 #Reactant.set_default_backend("cpu")
 
-using Enzyme
-
-Oceananigans.defaults.FloatType = Float64
-
-const Ntimesteps = 25        # Number of timesteps in zonal transport computed / AD'ed part
+const Ntimesteps = 25        # Number of timesteps in the AD'ed window
 const Nspinup    = 100        # Number of timesteps that the model is spun up
 
 graph_directory = "run_abernathy_model_ad_spinup" * string(Nspinup) * "_" * string(Ntimesteps) * "steps/"
+
+# GRADIENT-VERIFICATION MODE:
+# Centered(order=2) advection is Float64 end-to-end and smooth. WENO computes its
+# smoothness-indicator divisions in Float32 (see ConvertingDivision{Float32} in the
+# model type), which puts a ~1e-7 relative noise floor on the primal and destroys
+# the FD arm of the comparison. Set false to restore WENO for production runs.
+const use_smooth_advection = true
 
 #
 # Model parameters to set first:
@@ -68,13 +71,16 @@ z_faces[Nz+1] = 0
 const f = -1e-4
 const β = 1e-11
 
-halo_size = 4 #3 for non-immersed grid
+const halo_size = 4 #3 for non-immersed grid
 
 # Other model parameters:
 const α = 2e-4     # [K⁻¹] thermal expansion coefficient
 const g = 9.8061   # [m/s²] gravitational constant
 const cᵖ = 3994.0   # [J/K]  heat capacity
 const ρ = 999.8    # [kg/m³] reference density
+
+# Baseline GM/Redi coefficient (used for the unperturbed κᵢ field) [m²/s]:
+const κ_gm_background = 1e3
 
 parameters = (
     Ly = Ly,
@@ -86,6 +92,8 @@ parameters = (
     μ = 1 / 30days,                      # bottom drag damping time-scale [s⁻¹]
     ΔB = 8 * α * g,                      # surface vertical buoyancy gradient [s⁻²]
     ΔT = 8,                              # surface vertical temperature gradient
+    ΔT_front = 4.0,                      # meridional front amplitude [K] (half-range of tanh)
+    L_front = 200kilometers,             # meridional front width [m]
     H = Lz,                              # domain depth [m]
     h = 1000.0,                          # exponential decay scale of stable stratification [m]
     y_sponge = 19 / 20 * Ly,               # southern boundary of sponge layer [m]
@@ -194,21 +202,27 @@ function build_model(grid, Δt₀, parameters)
     biharmonic_closure = ScalarBiharmonicDiffusivity(HorizontalFormulation(), Oceananigans.defaults.FloatType;
                                                      ν = 1e11)
 
+    # These fields are overwritten from the κᵢ argument inside
+    # run_reentrant_channel_model! — the values set here only matter for the
+    # spinup phase, which runs with the (unperturbed) background κ.
     κ_skew_field      = Field{Center, Center, Center}(grid)
     κ_symmetric_field = Field{Center, Center, Center}(grid)
 
-    @allowscalar set!(κ_skew_field, 1e3)
-    @allowscalar set!(κ_symmetric_field, 1e3)
+    @allowscalar set!(κ_skew_field, κ_gm_background)
+    @allowscalar set!(κ_symmetric_field, κ_gm_background)
 
     gmredi_closure = IsopycnalSkewSymmetricDiffusivity(κ_skew=κ_skew_field, κ_symmetric=κ_symmetric_field)
+
+    # Smooth, fully-Float64 advection for gradient verification; WENO for production.
+    advection = use_smooth_advection ? Centered(order=2) : WENO(order=3)
 
     @info "Building a model..."
 
     model = HydrostaticFreeSurfaceModel(
         grid;
         free_surface = SplitExplicitFreeSurface(substeps=10),
-        momentum_advection = WENO(order=3),
-        tracer_advection = WENO(order=3),
+        momentum_advection = advection,
+        tracer_advection = advection,
         buoyancy = SeawaterBuoyancy(equation_of_state=LinearEquationOfState(Oceananigans.defaults.FloatType)),
         coriolis = coriolis,
         closure = (horizontal_closure, vertical_closure, gmredi_closure),
@@ -248,16 +262,52 @@ function v_wind_stress_init(grid, p)
     return wind_stress
 end
 
-# resting initial condition
-function temperature_salinity_init(grid, parameters)
+# Initial condition: exponential stratification PLUS a surface-intensified
+# meridional front. The front tilts the isopycnals so GM/Redi has something to
+# act on from the very first timestep:
+#   slope ≈ ∂yT / ∂zT ≈ (ΔT_front / 2 L_front) / (ΔT / h) ~ O(10⁻³),
+# which is comfortably below the default FluxTapering max slope (10⁻²), so the
+# fluxes are untapered and genuinely κ-proportional.
+function temperature_salinity_init(grid, p)
     # Adding some noise to temperature field:
     ε(σ) = σ * randn()
-    Tᵢ_function(x, y, z) = parameters.ΔT * (exp(z / parameters.h) - exp(-Lz / parameters.h)) / (1 - exp(-Lz / parameters.h)) + ε(1e-8)
+    stratification(z) = p.ΔT * (exp(z / p.h) - exp(-Lz / p.h)) / (1 - exp(-Lz / p.h))
+    front(y, z)       = 0.5 * p.ΔT_front * tanh((y - p.Ly / 2) / p.L_front) * exp(z / p.h)
+    Tᵢ_function(x, y, z) = stratification(z) + front(y, z) + ε(1e-8)
     Tᵢ = Field{Center, Center, Center}(grid)
     Sᵢ = Field{Center, Center, Center}(grid)
     @allowscalar set!(Tᵢ, Tᵢ_function)
     @allowscalar set!(Sᵢ, 35) # Initial Salinity
     return Tᵢ, Sᵢ
+end
+
+# GM/Redi coefficient "initial condition". A single field is used to set both
+# κ_skew and κ_symmetric inside the differentiated function, so dκᵢ accumulates
+# the sensitivity through both pathways.
+function kappa_init(grid)
+    κᵢ = Field{Center, Center, Center}(grid)
+    @allowscalar set!(κᵢ, κ_gm_background)
+    return κᵢ
+end
+
+# Direction field v for the directional-derivative test:
+#   J(κ + εv) ≈ J(κ) + ε ⟨∇J, v⟩.
+# :gaussian — a smooth 3D bump (localized test, still aggregates thousands of cells)
+# :uniform  — v ≡ 1 everywhere (tests the sum of the whole gradient field)
+function kappa_direction_init(grid; kind = :gaussian,
+                              x₀ = 300kilometers, y₀ = 600kilometers, z₀ = -1000.0,
+                              σx = 100kilometers, σy = 100kilometers, σz = 600.0,
+                              amplitude = 1.0)
+    v = Field{Center, Center, Center}(grid)
+    if kind == :uniform
+        @allowscalar set!(v, amplitude)
+    else
+        bump(x, y, z) = amplitude * exp(- (x - x₀)^2 / (2σx^2)
+                                        - (y - y₀)^2 / (2σy^2)
+                                        - (z - z₀)^2 / (2σz^2))
+        @allowscalar set!(v, bump)
+    end
+    return v
 end
 
 #####
@@ -302,13 +352,19 @@ function loop!(model)
     return nothing
 end
 
-function run_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, temp_flux)
+function run_reentrant_channel_model!(model, Tᵢ, Sᵢ, κᵢ, u_wind_stress, v_wind_stress, temp_flux)
     # setting IC's and BC's:
     set!(model.velocities.u.boundary_conditions.top.condition, u_wind_stress)
     set!(model.velocities.v.boundary_conditions.top.condition, v_wind_stress)
     set!(model.tracers.T, Tᵢ)
     set!(model.tracers.S, Sᵢ)
     set!(model.tracers.T.boundary_conditions.top.condition, temp_flux)
+
+    # Set the GM/Redi coefficients from the κᵢ argument. Because this happens
+    # *inside* the differentiated function, Enzyme propagates the adjoints of
+    # both closure fields back into dκᵢ.
+    set!(model.closure[3].κ_skew,      κᵢ)
+    set!(model.closure[3].κ_symmetric, κᵢ)
 
     # Initialize the model
     model.clock.iteration = 0
@@ -320,25 +376,37 @@ function run_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_s
     return nothing
 end
 
-function estimate_tracer_error(model, initial_temperature, initial_salinity, u_wind_stress, v_wind_stress, temp_flux, Δz, mld)
-    run_reentrant_channel_model!(model, initial_temperature, initial_salinity, u_wind_stress, v_wind_stress, temp_flux)
-    
+# VERIFICATION OBJECTIVE: total squared tracer drift over the window,
+#   J = Σᵢⱼₖ (T(t_end) - Tᵢ)².
+# GM/Redi modifies T at every cell within a couple of timesteps, so this
+# objective has O(1) sensitivity to κ even over a 25-step window — unlike the
+# midline zonal transport, which a local κ perturbation cannot reach in one
+# hour of model time. (The transport objective is kept below, commented, for
+# production use once the gradient is verified.)
+function estimate_tracer_error(model, initial_temperature, initial_salinity, κᵢ, u_wind_stress, v_wind_stress, temp_flux, Δz, mld)
+    run_reentrant_channel_model!(model, initial_temperature, initial_salinity, κᵢ, u_wind_stress, v_wind_stress, temp_flux)
+
     Nx, Ny, Nz = size(model.grid)
 
-    # Compute the zonal transport:
-    zonal_transport = (model.velocities.u[x_midpoint,1:Ny,1:Nz] .* model.grid.Δyᵃᶜᵃ) .* Δz
+    T_end  = model.tracers.T[1:Nx, 1:Ny, 1:Nz]
+    T_init = initial_temperature[1:Nx, 1:Ny, 1:Nz]
 
-    return sum(zonal_transport) / 1e6 # Put it in Sverdrups
+    return sum(abs2, T_end .- T_init)
+
+    # Production objective (zonal transport in Sv):
+    # zonal_transport = (model.velocities.u[x_midpoint,1:Ny,1:Nz] .* model.grid.Δyᵃᶜᵃ) .* Δz
+    # return sum(zonal_transport) / 1e6
 end
 
-function differentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, temp_flux, Δz, mld,
-                                   dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dtemp_flux, dΔz, dmld)
+function differentiate_tracer_error(model, Tᵢ, Sᵢ, κᵢ, u_wind_stress, v_wind_stress, temp_flux, Δz, mld,
+                                   dmodel, dTᵢ, dSᵢ, dκᵢ, du_wind_stress, dv_wind_stress, dtemp_flux, dΔz, dmld)
 
     dedν = autodiff(set_strong_zero(Enzyme.ReverseWithPrimal),
                     estimate_tracer_error, Active,
                     Duplicated(model, dmodel),
                     Duplicated(Tᵢ, dTᵢ),
                     Duplicated(Sᵢ, dSᵢ),
+                    Duplicated(κᵢ, dκᵢ),
                     Duplicated(u_wind_stress, du_wind_stress),
                     Duplicated(v_wind_stress, dv_wind_stress),
                     Duplicated(temp_flux, dtemp_flux),
@@ -346,6 +414,69 @@ function differentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_str
                     Duplicated(mld, dmld))
 
     return dedν
+end
+
+#####
+##### Directional-derivative check of dκᵢ
+#####
+
+# Compares the AD directional derivative ⟨dκᵢ, v⟩ against the central difference
+#   (J(κ + εv) - J(κ - εv)) / 2ε.
+# Perturbing an entire smooth direction field aggregates signal from every cell,
+# so this succeeds where single-point FD drowns in the primal's noise floor.
+#
+# Each FD evaluation replays the AD baseline exactly: rebuild the model, rerun
+# the compiled spinup from the pre-spinup ICs (Tᵢ₀, Sᵢ₀), then run the estimate
+# window with κ = κ_background + δ v. Only 2 evaluations per epsilon.
+
+# Host-side interior ranges of a parent (halo-padded) array:
+interior_ranges() = (halo_size+1:halo_size+Nx, halo_size+1:halo_size+Ny, halo_size+1:halo_size+Nz)
+
+function fd_directional_gradient_check(rspinup!, restimate,
+                                       grid, Δt₀, parameters,
+                                       Tᵢ₀, Sᵢ₀,      # pre-spinup ICs (deterministic replay of the spinup)
+                                       Tᵢ, Sᵢ,        # post-spinup ICs (arguments of the AD'd estimate call)
+                                       u_wind_stress, v_wind_stress, T_flux, Δz, mld,
+                                       dκᵢ,           # AD gradient field
+                                       v;             # direction field
+                                       epsilon_range = (1e2, 1e1, 1e0, 1e-1))
+
+    ir, jr, kr = interior_ranges()
+
+    # Pull both fields to the host and take the interior dot product:
+    dκ_h = Array(parent(dκᵢ))
+    v_h  = Array(parent(v))
+    ad_dot = sum(dκ_h[ir, jr, kr] .* v_h[ir, jr, kr])
+
+    @info @sprintf("max |dκᵢ| (interior)          = %.6e", maximum(abs, dκ_h[ir, jr, kr]))
+    @info @sprintf("AD directional derivative ⟨∇J, v⟩ = %+.12e", ad_dot)
+
+    function perturbed_estimate(δ)
+        model_fd = build_model(grid, Δt₀, parameters)
+        rspinup!(model_fd, Tᵢ₀, Sᵢ₀, u_wind_stress, v_wind_stress, T_flux)
+
+        # κ = background + δ v, applied on the interior only (matching where the
+        # adjoint lives; halos are refilled by set! inside the estimate run):
+        κ_fd = kappa_init(model_fd.grid)
+        κ_h = Array(parent(κ_fd))
+        κ_h[ir, jr, kr] .+= δ .* v_h[ir, jr, kr]
+        copyto!(parent(κ_fd), κ_h)
+
+        return restimate(model_fd, Tᵢ, Sᵢ, κ_fd, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
+    end
+
+    for epsilon in epsilon_range
+        outputP = perturbed_estimate(+epsilon)
+        outputM = perturbed_estimate(-epsilon)
+
+        fd_dot  = (outputP - outputM) / (2epsilon)
+        rel_err = abs(fd_dot - ad_dot) / max(abs(fd_dot), abs(ad_dot), eps(Float64))
+
+        @info @sprintf("    eps = %8.1e   FD = %+.12e   AD = %+.12e   rel. err = %.3e", epsilon, fd_dot, ad_dot, rel_err)
+        @info @sprintf("        (outputP = %+.16e, outputM = %+.16e)", outputP, outputM)
+    end
+
+    return nothing
 end
 
 #####
@@ -365,14 +496,26 @@ T_flux        = T_flux_init(model.grid, parameters)
 u_wind_stress = u_wind_stress_init(model.grid, parameters)
 v_wind_stress = v_wind_stress_init(model.grid, parameters)
 Tᵢ, Sᵢ        = temperature_salinity_init(model.grid, parameters)
+κᵢ            = kappa_init(model.grid)
 mld           = Field{Center, Center, Nothing}(model.grid)
 Δz            = Reactant.ConcreteRArray(Δz)
+
+# Direction field for the directional-derivative test (:gaussian or :uniform):
+v_direction = kappa_direction_init(model.grid; kind = :gaussian)
+
+# Keep a copy of the *pre-spinup* ICs so the FD check can replay the spinup
+# deterministically (Tᵢ/Sᵢ get overwritten with the spun-up state below):
+Tᵢ₀ = Field{Center, Center, Center}(model.grid)
+Sᵢ₀ = Field{Center, Center, Center}(model.grid)
+set!(Tᵢ₀, Tᵢ)
+set!(Sᵢ₀, Sᵢ)
 
 @info "Built $model."
 
 dmodel         = Enzyme.make_zero(model)
 dTᵢ            = Field{Center, Center, Center}(model.grid)
 dSᵢ            = Field{Center, Center, Center}(model.grid)
+dκᵢ            = Field{Center, Center, Center}(model.grid)
 du_wind_stress = Field{Face, Center, Nothing}(model.grid)
 dv_wind_stress = Field{Center, Face, Nothing}(model.grid)
 dT_flux        = Field{Center, Center, Nothing}(model.grid)
@@ -383,14 +526,12 @@ dΔz            = Enzyme.make_zero(Δz)
 @allowscalar @show typeof(model.closure[3].κ_symmetric)
 
 
-# Trying zonal transport:
-
-@info "Compiling the model run... (if you want to run forward code only, just compile 'estimate_tracer_error')"
+@info "Compiling the model run... (forward 'restimate_tracer_error' is needed for the FD check)"
 tic = time()
 rspinup_reentrant_channel_model! = @compile raise_first=true raise=true sync=true  spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux)
-#restimate_tracer_error = @compile raise_first=true raise=true sync=true estimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-rdifferentiate_tracer_error = @compile raise_first=true raise=true sync=true  differentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld,
-                                                                                                        dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
+restimate_tracer_error = @compile raise_first=true raise=true sync=true estimate_tracer_error(model, Tᵢ, Sᵢ, κᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
+rdifferentiate_tracer_error = @compile raise_first=true raise=true sync=true  differentiate_tracer_error(model, Tᵢ, Sᵢ, κᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld,
+                                                                                                        dmodel, dTᵢ, dSᵢ, dκᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
 compile_toc = time() - tic
 
 @show compile_toc
@@ -418,18 +559,17 @@ rspinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress
 spinup_toc = time() - tic
 @show spinup_toc
 
+@info "Computing the AD gradient (dκᵢ is accumulated in-place):"
+dedν = rdifferentiate_tracer_error(model, Tᵢ, Sᵢ, κᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld,
+                                   dmodel, dTᵢ, dSᵢ, dκᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
 
+#
+# Directional-derivative FD comparison:
+#
+fd_directional_gradient_check(rspinup_reentrant_channel_model!, restimate_tracer_error,
+                              grid, Δt₀, parameters,
+                              Tᵢ₀, Sᵢ₀, Tᵢ, Sᵢ,
+                              u_wind_stress, v_wind_stress, T_flux, Δz, mld,
+                              dκᵢ, v_direction;
+                              epsilon_range = (1e2, 1e1, 1e0, 1e-1))
 
-@info "Running for results, then profiling:"
-#output = restimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-dedν   = rdifferentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld, dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
-
-
-@info "Running the simulation for $Ntimesteps timesteps ... (if you want to run the forward code only, just run 'restimate_tracer_error')"
-tic = time()
-#Reactant.Profiler.@profile output = restimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-Reactant.Profiler.@profile rdifferentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld, dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
-run_toc = time() - tic
-
-@info "Run toc gives you the combined time of the warmup run and the counted run from @profile, so it should be somewhat over 2x the time of profile"
-@show run_toc
