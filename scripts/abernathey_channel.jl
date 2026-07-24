@@ -106,9 +106,9 @@ function wall_function(x, y)
 end
 
 
-function make_grid(architecture, Nx, Ny, Nz, z_faces)
+function make_grid(arch, Nx, Ny, Nz, z_faces)
 
-    underlying_grid = RectilinearGrid(architecture,
+    underlying_grid = RectilinearGrid(arch,
         topology = (Periodic, Bounded, Bounded),
         size = (Nx, Ny, Nz),
         halo = (halo_size, halo_size, halo_size),
@@ -345,13 +345,13 @@ end
 #####
 
 # Architecture
-architecture = ReactantState()
+arch = ReactantState()
 
 # Timestep size:
 Δt₀ = 2.5minutes 
 
 # Make the grid:
-grid          = make_grid(architecture, Nx, Ny, Nz, z_faces)
+grid          = make_grid(arch, Nx, Ny, Nz, z_faces)
 model         = build_model(grid, Δt₀, parameters)
 T_flux        = T_flux_init(model.grid, parameters)
 u_wind_stress = u_wind_stress_init(model.grid, parameters)
