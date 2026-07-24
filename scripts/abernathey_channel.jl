@@ -392,7 +392,7 @@ filename = graph_directory * "data_init.jld2"
 if !isdir(graph_directory) Base.Filesystem.mkdir(graph_directory) end
 
 if isa(model.grid, ImmersedBoundaryGrid)
-    bottom_height = model.grid.immersed_boundary.bottom_height
+    bottom_height = bottom_height_field(model.grid)
 else
     bottom_height = Field{Center, Center, Nothing}(model.grid)
     set!(bottom_height, -Lz)
@@ -410,7 +410,7 @@ jldsave(filename; Nx, Ny, Nz,
                   bottom_height=convert(Array, interior(bottom_height)),
                   T_init=convert(Array, interior(model.tracers.T)),
                   S_init=convert(Array, interior(model.tracers.S)),
-                  ssh=convert(Array, interior(model.free_surface.η)),
+                  ssh=convert(Array, interior(model.free_surface.displacement)),
                   e_init=convert(Array, interior(model.tracers.e)),
                   u_wind_stress=convert(Array, interior(u_wind_stress)),
                   v_wind_stress=convert(Array, interior(v_wind_stress)),
@@ -441,7 +441,7 @@ jldsave(filename; Nx, Ny, Nz,
                   T_final=convert(Array, interior(model.tracers.T)),
                   S_final=convert(Array, interior(model.tracers.S)),
                   e_final=convert(Array, interior(model.tracers.e)),
-                  ssh=convert(Array, interior(model.free_surface.η)),
+                  ssh=convert(Array, interior(model.free_surface.displacement)),
                   u=convert(Array, interior(model.velocities.u)),
                   v=convert(Array, interior(model.velocities.v)),
                   w=convert(Array, interior(model.velocities.w)),
