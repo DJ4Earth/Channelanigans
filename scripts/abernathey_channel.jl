@@ -33,8 +33,16 @@ using Enzyme
 
 Oceananigans.defaults.FloatType = Float64
 
-const Ntimesteps = 25        # Number of timesteps in zonal transport computed / AD'ed part
-const Nspinup    = 100        # Number of timesteps that the model is spun up
+input1 = 25
+input2 = 100
+
+if length(ARGS) == 2
+    input1 = parse(Int, ARGS[1]) 
+    input2 = parse(Int, ARGS[2]) 
+end
+
+const Ntimesteps = input1       # Number of timesteps in zonal transport computed / AD'ed part
+const Nspinup    = input2       # Number of timesteps that the model is spun up
 
 graph_directory = "run_abernathy_model_ad_spinup" * string(Nspinup) * "_" * string(Ntimesteps) * "steps/"
 
