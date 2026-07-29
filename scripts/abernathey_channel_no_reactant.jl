@@ -18,18 +18,13 @@ using SeawaterPolynomials
 
 using CUDA
 
-using Reactant
-using Oceananigans.Architectures: ReactantState
-#Reactant.set_default_backend("cpu")
 
 using Enzyme
 
 Enzyme.API.looseTypeAnalysis!(true)
+Enzyme.API.strictAliasing!(false)
 
 Oceananigans.defaults.FloatType = Float64
-
-@info "To specify architecture uncomment line 'Reactant.set_default_backend(\"cpu\")' "
-#Reactant.set_default_backend("cpu")
 
 using Enzyme
 
@@ -232,7 +227,7 @@ end
 function T_flux_init(grid, p)
     @inline temp_flux_function(x, y) = ifelse(y < p.y_shutoff, p.Qᵀ * cos(3π * y / p.Ly), 0.0)
     temp_flux = Field{Center, Center, Nothing}(grid)
-    @allowscalar set!(temp_flux, temp_flux_function)
+    set!(temp_flux, temp_flux_function)
     return temp_flux
 end
 
@@ -240,13 +235,13 @@ end
 function u_wind_stress_init(grid, p)
     @inline u_stress(x, y) = -p.τ * sin(π * y / p.Ly)
     wind_stress = Field{Face, Center, Nothing}(grid)
-    @allowscalar set!(wind_stress, u_stress)
+    set!(wind_stress, u_stress)
     return wind_stress
 end
 
 function v_wind_stress_init(grid, p)
     wind_stress = Field{Center, Face, Nothing}(grid)
-    @allowscalar set!(wind_stress, 0)
+    set!(wind_stress, 0)
     return wind_stress
 end
 
@@ -257,8 +252,8 @@ function temperature_salinity_init(grid, parameters)
     Tᵢ_function(x, y, z) = parameters.ΔT * (exp(z / parameters.h) - exp(-Lz / parameters.h)) / (1 - exp(-Lz / parameters.h)) + ε(1e-8)
     Tᵢ = Field{Center, Center, Center}(grid)
     Sᵢ = Field{Center, Center, Center}(grid)
-    @allowscalar set!(Tᵢ, Tᵢ_function)
-    @allowscalar set!(Sᵢ, 35) # Initial Salinity
+     set!(Tᵢ, Tᵢ_function)
+     set!(Sᵢ, 35) # Initial Salinity
     return Tᵢ, Sᵢ
 end
 
@@ -268,7 +263,7 @@ end
 
 function spinup_loop!(model)
     Δt = model.clock.last_Δt
-    @trace mincut = true track_numbers = false for i = 1:Nspinup
+    for i = 1:Nspinup
         time_step!(model, Δt)
     end
     return nothing
@@ -298,7 +293,7 @@ end
 
 function loop!(model)
     Δt = model.clock.last_Δt
-    @trace mincut = true checkpointing = true track_numbers = false for i = 1:Ntimesteps
+    for i = 1:Ntimesteps
         time_step!(model, Δt)
     end
     return nothing
@@ -355,7 +350,7 @@ end
 #####
 
 # Architecture
-arch = GPU()
+arch = CPU()
 
 # Timestep size:
 Δt₀ = 2.5minutes 
@@ -368,7 +363,7 @@ u_wind_stress = u_wind_stress_init(model.grid, parameters)
 v_wind_stress = v_wind_stress_init(model.grid, parameters)
 Tᵢ, Sᵢ        = temperature_salinity_init(model.grid, parameters)
 mld           = Field{Center, Center, Nothing}(model.grid)
-Δz            = Reactant.ConcreteRArray(Δz)
+Δz            = Δz
 
 @info "Built $model."
 
@@ -411,8 +406,8 @@ end
 @info "Spinup the model for $Nspinup timesteps, save the T and S from this state:"
 tic = time()
 #rspinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux)
-@allowscalar set!(Tᵢ, model.tracers.T)
-@allowscalar set!(Sᵢ, model.tracers.S)
+ set!(Tᵢ, model.tracers.T)
+ set!(Sᵢ, model.tracers.S)
 spinup_toc = time() - tic
 @show spinup_toc
 
@@ -435,8 +430,7 @@ dedν   = differentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_st
 
 @info "Running the simulation for $Ntimesteps timesteps ... (if you want to run the forward code only, just run 'restimate_tracer_error')"
 tic = time()
-#Reactant.Profiler.@profile output = restimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-Reactant.Profiler.@profile differentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld, dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
+differentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld, dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
 run_toc = time() - tic
 
 @info "Run toc gives you the combined time of the warmup run and the counted run from @profile, so it should be somewhat over 2x the time of profile"
@@ -467,7 +461,7 @@ jldsave(filename; Nx, Ny, Nz,
                   dT_flux=convert(Array, interior(dT_flux)))
 
 #=
-@allowscalar @show argmax(abs.(dTᵢ))
+ @show argmax(abs.(dTᵢ))
 
 #
 # Loop of FD results for comparison:
@@ -481,7 +475,7 @@ for i = 21:28
     for j = 45:52
 
         @show i, j
-        @allowscalar @show dTᵢ[i, j, 1]
+         @show dTᵢ[i, j, 1]
 
         for eps in epsilon_range
             # Reset everything to 0:
@@ -491,7 +485,7 @@ for i = 21:28
             Tᵢ_fd, Sᵢ_fd = temperature_salinity_init(model_fd.grid, parameters)
 
             # Permute the model field at i,j,1
-            @allowscalar Tᵢ_fd[i, j, 1] = Tᵢ_fd[i, j, 1] + eps
+             Tᵢ_fd[i, j, 1] = Tᵢ_fd[i, j, 1] + eps
 
             outputP = restimate_tracer_error(model_fd, Tᵢ_fd, Sᵢ_fd, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
 
@@ -502,7 +496,7 @@ for i = 21:28
             Tᵢ_fd, Sᵢ_fd = temperature_salinity_init(model_fd.grid, parameters)
 
             # Permute the model field at i,j,1
-            @allowscalar Tᵢ_fd[i, j, 1] = Tᵢ_fd[i, j, 1] - eps
+             Tᵢ_fd[i, j, 1] = Tᵢ_fd[i, j, 1] - eps
 
             outputM = restimate_tracer_error(model_fd, Tᵢ_fd, Sᵢ_fd, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
 
