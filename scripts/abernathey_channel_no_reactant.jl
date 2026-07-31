@@ -350,7 +350,7 @@ end
 #####
 
 # Architecture
-arch = CPU()
+arch = GPU()
 
 # Timestep size:
 Δt₀ = 2.5minutes 
