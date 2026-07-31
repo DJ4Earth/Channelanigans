@@ -20,6 +20,7 @@ using CUDA
 
 
 using Enzyme
+#using Checkpointing
 
 Enzyme.API.looseTypeAnalysis!(true)
 Enzyme.API.strictAliasing!(false)
@@ -293,6 +294,7 @@ end
 
 function loop!(model)
     Δt = model.clock.last_Δt
+    #@ad_checkpoint Periodic for i = 1:Ntimesteps
     for i = 1:Ntimesteps
         time_step!(model, Δt)
     end
@@ -350,7 +352,7 @@ end
 #####
 
 # Architecture
-arch = GPU()
+arch = CPU()
 
 # Timestep size:
 Δt₀ = 2.5minutes 
@@ -406,8 +408,8 @@ end
 @info "Spinup the model for $Nspinup timesteps, save the T and S from this state:"
 tic = time()
 #rspinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux)
- set!(Tᵢ, model.tracers.T)
- set!(Sᵢ, model.tracers.S)
+set!(Tᵢ, model.tracers.T)
+set!(Sᵢ, model.tracers.S)
 spinup_toc = time() - tic
 @show spinup_toc
 
@@ -425,8 +427,15 @@ jldsave(filename; Nx, Ny, Nz,
 
 @info "Running for results, then profiling:"
 #output = restimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
+estimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
 dedν   = differentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld, dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
+estimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
+differentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld, dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
 
+
+tic = time()
+estimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
+run_toc_forward_only = time() - tic
 
 @info "Running the simulation for $Ntimesteps timesteps ... (if you want to run the forward code only, just run 'restimate_tracer_error')"
 tic = time()
@@ -435,6 +444,7 @@ run_toc = time() - tic
 
 @info "Run toc gives you the combined time of the warmup run and the counted run from @profile, so it should be somewhat over 2x the time of profile"
 @show run_toc
+@show run_toc_forward_only
 #@show output
 
 #@show dedν
@@ -459,56 +469,3 @@ jldsave(filename; Nx, Ny, Nz,
                   dkappaT_final=convert(Array, interior(dmodel.closure[2].κ[1])),
                   dkappaS_final=convert(Array, interior(dmodel.closure[2].κ[2])),
                   dT_flux=convert(Array, interior(dT_flux)))
-
-#=
- @show argmax(abs.(dTᵢ))
-
-#
-# Loop of FD results for comparison:
-#
-i_range = [21, 22, 23, 24, 25, 26, 27, 28]
-j_range = [45, 46, 47, 48, 49, 50, 51, 52]
-
-epsilon_range = [1e-2, 1e-4, 1e-6]
-
-for i = 21:28
-    for j = 45:52
-
-        @show i, j
-         @show dTᵢ[i, j, 1]
-
-        for eps in epsilon_range
-            # Reset everything to 0:
-            model_fd = build_model(grid, Δt₀, parameters)
-            
-            # Set new T and S init fields for FD:
-            Tᵢ_fd, Sᵢ_fd = temperature_salinity_init(model_fd.grid, parameters)
-
-            # Permute the model field at i,j,1
-             Tᵢ_fd[i, j, 1] = Tᵢ_fd[i, j, 1] + eps
-
-            outputP = restimate_tracer_error(model_fd, Tᵢ_fd, Sᵢ_fd, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-
-            # Reset everything to 0:
-            model_fd = build_model(grid, Δt₀, parameters)
-            
-            # Set new T and S init fields for FD:
-            Tᵢ_fd, Sᵢ_fd = temperature_salinity_init(model_fd.grid, parameters)
-
-            # Permute the model field at i,j,1
-             Tᵢ_fd[i, j, 1] = Tᵢ_fd[i, j, 1] - eps
-
-            outputM = restimate_tracer_error(model_fd, Tᵢ_fd, Sᵢ_fd, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-
-            dT_fd = (outputP - outputM) / (2eps)
-
-            @show eps, dT_fd
-
-            if i == 21
-                @show outputP, outputM
-            end
-        end
-    end
-end
-=#
-            
