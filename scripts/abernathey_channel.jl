@@ -415,7 +415,6 @@ dΔz            = Enzyme.make_zero(Δz)
 
 @info "Compiling the model run... (if you want to run forward code only, just compile 'estimate_tracer_error')"
 tic = time()
-rspinup_reentrant_channel_model! = @compile optimize=:after_enzyme raise_first=true raise=true sync=true  spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux)
 #restimate_tracer_error = @compile raise_first=true raise=true sync=true estimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
 rdifferentiate_tracer_error = @compile optimize=:after_enzyme raise_first=true raise=true sync=true  differentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld,
                                                                                                         dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
@@ -437,14 +436,6 @@ else
     bottom_height = Field{Center, Center, Nothing}(model.grid)
     set!(bottom_height, -Lz)
 end
-
-@info "Spinup the model for $Nspinup timesteps, save the T and S from this state:"
-tic = time()
-rspinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux)
-@allowscalar set!(Tᵢ, model.tracers.T)
-@allowscalar set!(Sᵢ, model.tracers.S)
-spinup_toc = time() - tic
-@show spinup_toc
 
 jldsave(filename; Nx, Ny, Nz,
                   bottom_height=convert(Array, interior(bottom_height)),
