@@ -20,9 +20,41 @@ using CUDA
 
 using Reactant
 using Oceananigans.Architectures: ReactantState
-#Reactant.set_default_backend("cpu")
+Reactant.set_default_backend("cpu")
 
 using Enzyme
+
+using LinuxPerf
+
+# perf control plumbing — no-ops if not launched under `perf stat --control`
+const PERF_CTL = haskey(ENV, "PERF_CTL_FIFO") ?
+    open(ENV["PERF_CTL_FIFO"], read=true, write=true) : nothing
+const PERF_ACK = haskey(ENV, "PERF_ACK_FIFO") ?
+    open(ENV["PERF_ACK_FIFO"], read=true, write=true) : nothing
+
+perf_enable()  = PERF_CTL === nothing ? nothing :
+    (println(PERF_CTL, "enable");  flush(PERF_CTL); readline(PERF_ACK))
+perf_disable() = PERF_CTL === nothing ? nothing :
+    (println(PERF_CTL, "disable"); flush(PERF_CTL); readline(PERF_ACK))
+
+function counted(f; warmup::Bool=true, label::String="")
+    warmup && f()
+    GC.gc(); GC.gc()
+    try
+        write("/proc/self/clear_refs", "5")   # reset the VmHWM watermark
+    catch e
+        @warn "clear_refs unavailable — peak RSS will include earlier phases" e
+    end
+    perf_enable()
+    t0 = time_ns()
+    y  = f()
+    t1 = time_ns()
+    perf_disable()
+    hwm_kb = parse(Int, match(r"VmHWM:\s+(\d+) kB",
+                              read("/proc/self/status", String)).captures[1])
+    @info "counted[$label]: wall $((t1 - t0) / 1e9) s, peak RSS $(hwm_kb / 2^20) GiB"
+    return y, hwm_kb * 1024
+end
 
 Oceananigans.defaults.FloatType = Float64
 
@@ -296,7 +328,7 @@ end
 
 function loop!(model)
     Δt = model.clock.last_Δt
-    @trace mincut = true checkpointing = true track_numbers = false for i = 1:Ntimesteps
+    @trace mincut = true checkpointing = false track_numbers = false for i = 1:Ntimesteps
         time_step!(model, Δt)
     end
     return nothing
@@ -430,21 +462,6 @@ jldsave(filename; Nx, Ny, Nz,
 #output = restimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
 dedν   = rdifferentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld, dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
 
-
-@info "Running the simulation for $Ntimesteps timesteps ... (if you want to run the forward code only, just run 'restimate_tracer_error')"
-tic = time()
-#Reactant.Profiler.@profile output = restimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-Reactant.Profiler.@profile rdifferentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld, dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
-run_toc = time() - tic
-
-@info "Run toc gives you the combined time of the warmup run and the counted run from @profile, so it should be somewhat over 2x the time of profile"
-@show run_toc
-#@show output
-
-#@show dedν
-
-filename = graph_directory * "data_final.jld2"
-
 jldsave(filename; Nx, Ny, Nz,
                   T_final=convert(Array, interior(model.tracers.T)),
                   S_final=convert(Array, interior(model.tracers.S)),
@@ -464,55 +481,29 @@ jldsave(filename; Nx, Ny, Nz,
                   dkappaS_final=convert(Array, interior(dmodel.closure[2].κ[2])),
                   dT_flux=convert(Array, interior(dT_flux)))
 
-#=
-@allowscalar @show argmax(abs.(dTᵢ))
 
-#
-# Loop of FD results for comparison:
-#
-i_range = [21, 22, 23, 24, 25, 26, 27, 28]
-j_range = [45, 46, 47, 48, 49, 50, 51, 52]
+@info "Running the simulation for $Ntimesteps timesteps ... (if you want to run the forward code only, just run 'restimate_tracer_error')"
+tic = time()
+r = Reactant.Profiler.@timed nrepeat=3 warmup=1 rdifferentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld, dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
+run_toc = time() - tic
 
-epsilon_range = [1e-2, 1e-4, 1e-6]
+@info "Run toc gives you the combined time of the warmup run and the counted run from @profile, so it should be somewhat over 2x the time of profile"
+@show run_toc
+#@show output
 
-for i = 21:28
-    for j = 45:52
+@info "Timed result in seconds"
+@show r.runtime_ns / 1e9
 
-        @show i, j
-        @allowscalar @show dTᵢ[i, j, 1]
+@show Reactant.XLA.cost_analysis(rdifferentiate_tracer_error).flops
 
-        for eps in epsilon_range
-            # Reset everything to 0:
-            model_fd = build_model(grid, Δt₀, parameters)
-            
-            # Set new T and S init fields for FD:
-            Tᵢ_fd, Sᵢ_fd = temperature_salinity_init(model_fd.grid, parameters)
-
-            # Permute the model field at i,j,1
-            @allowscalar Tᵢ_fd[i, j, 1] = Tᵢ_fd[i, j, 1] + eps
-
-            outputP = restimate_tracer_error(model_fd, Tᵢ_fd, Sᵢ_fd, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-
-            # Reset everything to 0:
-            model_fd = build_model(grid, Δt₀, parameters)
-            
-            # Set new T and S init fields for FD:
-            Tᵢ_fd, Sᵢ_fd = temperature_salinity_init(model_fd.grid, parameters)
-
-            # Permute the model field at i,j,1
-            @allowscalar Tᵢ_fd[i, j, 1] = Tᵢ_fd[i, j, 1] - eps
-
-            outputM = restimate_tracer_error(model_fd, Tᵢ_fd, Sᵢ_fd, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-
-            dT_fd = (outputP - outputM) / (2eps)
-
-            @show eps, dT_fd
-
-            if i == 21
-                @show outputP, outputM
-            end
-        end
-    end
+dedν_counted, peak_rss = counted(warmup=false, label="rdifferentiate_tracer_error") do
+    rdifferentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld,
+                                dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux,
+                                dΔz, dmld)
 end
-=#
+
+@show peak_rss
+
+filename = graph_directory * "data_final.jld2"
+
             
