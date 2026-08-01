@@ -14,9 +14,9 @@ using Oceananigans.OutputReaders: FieldTimeSeries
 using Oceananigans.Grids: xnode, ynode, znode
 using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity, HorizontalFormulation
 
-using SeawaterPolynomials
-
 using CUDA
+
+using SeawaterPolynomials
 
 using Reactant
 using Oceananigans.Architectures: ReactantState
