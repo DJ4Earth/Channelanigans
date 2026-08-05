@@ -1,0 +1,237 @@
+using Oceananigans
+using Printf
+using Statistics
+
+using Oceananigans
+using Oceananigans.Units
+using Oceananigans.OutputReaders: FieldTimeSeries
+using Oceananigans.Grids: xnode, ynode, znode
+using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity, HorizontalFormulation
+
+using SeawaterPolynomials
+
+using CUDA
+using CUDA: @allowscalar
+
+#####
+##### Model parameters to set first:
+#####
+
+# number of grid points
+const Nx = 80  # LowRes: 48
+const Ny = 160 # LowRes: 96
+const Nz = 32
+
+const x_midpoint = Int(Nx / 2) + 1
+
+# stretched grid
+k_center  = collect(1:Nz)
+Δz_center = @. 10 * 1.104^(Nz - k_center)
+
+const Lx = 1000kilometers # zonal domain length [m]
+const Ly = 2000kilometers # meridional domain length [m]
+const Lz = sum(Δz_center)
+
+z_faces = vcat([-Lz], -Lz .+ cumsum(Δz_center))
+z_faces[Nz+1] = 0
+
+# Coriolis variables:
+const f = -1e-4
+const β = 1e-11
+
+halo_size = 7 # 3 for non-immersed grid
+
+# Other model parameters:
+const α = 2e-4     # [K⁻¹] thermal expansion coefficient
+const g = 9.8061   # [m/s²] gravitational constant
+const cᵖ = 3994.0  # [J/K]  heat capacity
+const ρ = 999.8    # [kg/m³] reference density
+
+parameters = (
+    Ly = Ly,
+    Lz = Lz,
+    Qᵇ = 10 / (ρ * cᵖ) * α * g,  # buoyancy flux magnitude [m² s⁻³]
+    Qᵀ = 10 / (ρ * cᵖ),          # temperature flux magnitude
+    y_shutoff = 5 / 6 * Ly,      # shutoff location for buoyancy flux [m]
+    τ = 0.2 / ρ,                 # surface kinematic wind stress [m² s⁻²]
+    μ = 0.001,                   # bottom drag damping time-scale [s⁻¹]
+    ΔB = 8 * α * g,              # surface vertical buoyancy gradient [s⁻²]
+    ΔT = 8,                      # surface vertical temperature gradient
+    H = Lz,                      # domain depth [m]
+    h = 1000.0,                  # exponential decay scale of stable stratification [m]
+    y_sponge = 19 / 20 * Ly,     # southern boundary of sponge layer [m]
+    λt = 7.0days                 # relaxation time scale [s]
+)
+
+# full ridge function:
+function ridge_function(x, y)
+    zonal = (Lz+3000)exp(-(x - Lx/2)^2/(1e6kilometers))
+    gap   = 1 - 0.5(tanh((y - (Ly/6))/1e5) - tanh((y - (Ly/2))/1e5))
+    return zonal * gap - Lz
+end
+
+function wall_function(x, y)
+    zonal = (x > 470kilometers) && (x < 530kilometers)
+    gap   = (y < 400kilometers) || (y > 1000kilometers)
+    return (Lz+1) * zonal * gap - Lz
+end
+
+function make_grid(arch, Nx, Ny, Nz, z_faces)
+
+    underlying_grid = RectilinearGrid(arch,
+                                      topology = (Periodic, Bounded, Bounded),
+                                      size = (Nx, Ny, Nz),
+                                      halo = (halo_size, halo_size, halo_size),
+                                      x = (0, Lx),
+                                      y = (0, Ly),
+                                      z = z_faces)
+
+    # Make into a ridge array:
+    ridge = Field{Center, Center, Nothing}(underlying_grid)
+    set!(ridge, wall_function)
+    grid = ImmersedBoundaryGrid(underlying_grid, GridFittedBottom(ridge))
+    
+    return grid
+end
+
+#####
+##### Model construction:
+#####
+
+function build_model(grid, Δt₀, parameters)
+
+    @inline   u_drag(i, j, grid, clock, model_fields, p) = @inbounds -p.μ * model_fields.u[i, j, 1]
+    @inline   v_drag(i, j, grid, clock, model_fields, p) = @inbounds -p.μ * model_fields.v[i, j, 1]
+    @inline u_stress(i, j, grid, clock, model_fields, p) = -p.τ * sin(π * ynode(j, grid, Center()) / p.Ly)
+    
+    @inline function T_flux(i, j, grid, clock, model_fields, p) 
+        y = ynode(j, grid, Center())
+        ifelse(y < p.y_shutoff, p.Qᵀ * cos(3π * y / p.Ly), 0.0)
+    end
+
+    u_drag_bc   = FluxBoundaryCondition(u_drag;   discrete_form=true, parameters)
+    v_drag_bc   = FluxBoundaryCondition(v_drag;   discrete_form=true, parameters)
+    u_stress_bc = FluxBoundaryCondition(u_stress; discrete_form=true, parameters)
+    T_flux_bc   = FluxBoundaryCondition(T_flux;   discrete_form=true, parameters)
+
+    T_bcs = FieldBoundaryConditions(top=T_flux_bc)
+    u_bcs = FieldBoundaryConditions(top=u_stress_bc, bottom=u_drag_bc)
+    v_bcs = FieldBoundaryConditions(bottom=v_drag_bc)
+
+    #####
+    ##### Coriolis
+    #####
+
+    coriolis = BetaPlane(f₀ = f, β = β)
+
+    #####
+    ##### Forcing and initial condition
+    #####
+
+    @inline initial_temperature(z, p) = p.ΔT * (exp(z / p.h) - exp(-p.Lz / p.h)) / (1 - exp(-p.Lz / p.h))
+    @inline mask(y, p)                = max(0.0, y - p.y_sponge) / (Ly - p.y_sponge)
+
+    @inline function temperature_relaxation(i, j, k, grid, clock, model_fields, p)
+        timescale = p.λt
+        y = ynode(j, grid, Center())
+        z = znode(k, grid, Center())
+        target_T = initial_temperature(z, p)
+        T = @inbounds model_fields.T[i, j, k]
+    
+        return -1 / timescale * mask(y, p) * (T - target_T)
+    end
+    
+    FT = Forcing(temperature_relaxation; discrete_form=true, parameters)
+
+    function default_ocean_closure(FT=Oceananigans.defaults.FloatType)
+        mixing_length = Oceananigans.TurbulenceClosures.TKEBasedVerticalDiffusivities.CATKEMixingLength(Cᵇ=0.01)
+        turbulent_kinetic_energy_equation = Oceananigans.TurbulenceClosures.TKEBasedVerticalDiffusivities.CATKEEquation(Cᵂϵ=1.0)
+        return CATKEVerticalDiffusivity(VerticallyImplicitTimeDiscretization(), FT; mixing_length, turbulent_kinetic_energy_equation)
+    end
+
+    @info "Building a model..."
+
+    @allowscalar model = HydrostaticFreeSurfaceModel(
+        grid = grid,
+        free_surface = SplitExplicitFreeSurface(grid, substeps=30),
+        momentum_advection = WENO(order=5),
+        tracer_advection = WENO(order=7),
+        buoyancy = SeawaterBuoyancy(equation_of_state=LinearEquationOfState(Oceananigans.defaults.FloatType), constant_salinity=35),
+        coriolis = coriolis,
+        closure = default_ocean_closure(),
+        tracers = (:T, :e),
+        boundary_conditions = (; T = T_bcs, u = u_bcs, v = v_bcs),
+        forcing = (T = FT,)
+    )
+
+    model.clock.last_Δt = Δt₀
+
+    return model
+end
+
+#####
+##### Special initial and boundary conditions
+#####
+
+# resting initial condition
+function temperature_salinity_init(grid, parameters)
+    # Adding some noise to temperature field:
+    ε(σ) = σ * randn()
+    Tᵢ_function(x, y, z) = parameters.ΔT * (exp(z / parameters.h) - exp(-Lz / parameters.h)) / (1 - exp(-Lz / parameters.h)) 
+    Tᵢ = Field{Center, Center, Center}(grid)
+    @allowscalar set!(Tᵢ, Tᵢ_function)
+    return Tᵢ
+end
+
+#####
+##### Spin up (because step cound is hardcoded we need separate functions for each loop...)
+#####
+
+function spinup_loop!(model)
+    Δt = model.clock.last_Δt
+    for i = 1:100000000
+        if mod(i, 100) == 0
+            @info "step $i out of 100000000"
+        end
+        time_step!(model, Δt)
+    end
+    return nothing
+end
+
+function spinup_reentrant_channel_model!(model, Tᵢ)
+    # setting IC's and BC's:
+    set!(model.tracers.T, Tᵢ)
+
+    # Initialize the model
+    model.clock.iteration = 0
+    model.clock.time = 0
+
+    # Step it forward
+    spinup_loop!(model)
+
+    return nothing
+end
+
+#####
+##### Actually creating our model and using these functions to run it:
+#####
+
+# Architecture
+architecture = GPU()
+
+# Timestep size:
+Δt₀ = 10minutes 
+
+# Make the grid:
+grid   = make_grid(architecture, Nx, Ny, Nz, z_faces)
+model  = build_model(grid, Δt₀, parameters)
+Tᵢ     = temperature_salinity_init(model.grid, parameters)
+
+@info "Built $model."
+@info "Running the simulation..."
+
+# Spinup the model for a sufficient amount of time, save the T and S from this state:
+tic = time()
+spinup_reentrant_channel_model!(model, Tᵢ)
+spinup_toc = time() - tic
+@show spinup_toc
