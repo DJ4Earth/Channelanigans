@@ -132,7 +132,7 @@ const nfeatures   = 6     # |S|, 1/Ri, N²/N²_ref, L_d/Δx, z/H, y-wall distanc
 const nn_width    = 16
 const κ_log_bound = 3.0   # κ confined to κ_bg·e^±3 ≈ [5e1, 2e4] m²/s
 
-const zero_init_last_layer = true   # ← false for FD gradient-verification runs
+const zero_init_last_layer = false   # ← false for FD gradient-verification runs
 
 nn_zero_init(rng, dims...) = zeros(Oceananigans.defaults.FloatType, dims...)
 
@@ -455,13 +455,14 @@ function spinup_loop!(model)
     return nothing
 end
 
-function spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, temp_flux)
+function spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, ps, st, fconst, u_wind_stress, v_wind_stress, temp_flux)
     # setting IC's and BC's:
     set!(model.velocities.u.boundary_conditions.top.condition, u_wind_stress)
     set!(model.velocities.v.boundary_conditions.top.condition, v_wind_stress)
     set!(model.tracers.T, Tᵢ)
     set!(model.tracers.S, Sᵢ)
     set!(model.tracers.T.boundary_conditions.top.condition, temp_flux)
+    update_gmredi_κ!(model, ps, st, fconst)
 
     # Initialize the model
     model.clock.iteration = 0
@@ -481,6 +482,7 @@ function loop!(model)
     Δt = model.clock.last_Δt
     @trace mincut = true checkpointing = true track_numbers = false for i = 1:Ntimesteps
         time_step!(model, Δt)
+        #update_gmredi_κ!(model, ps, st, fconst)
     end
     return nothing
 end
@@ -587,6 +589,8 @@ function fd_directional_gradient_check(rspinup!, restimate,
     v_flat = randn(Xoshiro(7), length(flat₀))
     v_flat ./= norm(v_flat)
 
+    ps    = Reactant.to_rarray(restruct(flat₀))
+
     # Pull the AD gradient tree to the host, flatten identically, dot with v:
     dps_host  = fmap(x -> x isa AbstractArray ? Array(x) : x, dps)
     g_flat, _ = Optimisers.destructure(dps_host)
@@ -597,9 +601,10 @@ function fd_directional_gradient_check(rspinup!, restimate,
 
     function perturbed_estimate(δ)
         model_fd = build_model(grid, Δt₀, parameters)
-        rspinup!(model_fd, Tᵢ₀, Sᵢ₀, u_wind_stress, v_wind_stress, T_flux)
 
-        ps_fd = Reactant.to_rarray(restruct(flat₀ .+ δ .* v_flat))
+        rspinup!(model_fd, Tᵢ₀, Sᵢ₀, ps, st, fconst, u_wind_stress, v_wind_stress, T_flux)
+
+        ps_fd    = Reactant.to_rarray(restruct(flat₀ .+ δ .* v_flat))
 
         return restimate(model_fd, Tᵢ, Sᵢ, ps_fd, st, fconst, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
     end
@@ -675,7 +680,7 @@ dΔz            = Enzyme.make_zero(Δz)
 
 @info "Compiling the model run... (forward 'restimate_tracer_error' is needed for the FD check)"
 tic = time()
-rspinup_reentrant_channel_model! = @compile raise_first=true raise=true sync=true  spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux)
+rspinup_reentrant_channel_model! = @compile raise_first=true raise=true sync=true  spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, ps, st, fconst, u_wind_stress, v_wind_stress, T_flux)
 restimate_tracer_error = @compile raise_first=true raise=true sync=true estimate_tracer_error(model, Tᵢ, Sᵢ, ps, st, fconst, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
 rdifferentiate_tracer_error = @compile raise_first=true raise=true sync=true  differentiate_tracer_error(model, Tᵢ, Sᵢ, ps, st, fconst, u_wind_stress, v_wind_stress, T_flux, Δz, mld,
                                                                                                         dmodel, dTᵢ, dSᵢ, dps, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
@@ -703,7 +708,7 @@ end
 # inside the estimate window. (Milestone (a): with zero_init_last_layer = true,
 # restimate_tracer_error must reproduce the old constant-κ script's output.)
 tic = time()
-rspinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux)
+rspinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, ps, st, fconst, u_wind_stress, v_wind_stress, T_flux)
 @allowscalar set!(Tᵢ, model.tracers.T)
 @allowscalar set!(Sᵢ, model.tracers.S)
 spinup_toc = time() - tic
