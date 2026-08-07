@@ -29,8 +29,16 @@ Oceananigans.defaults.FloatType = Float64
 @info "To specify architecture uncomment line 'Reactant.set_default_backend(\"cpu\")' "
 #Reactant.set_default_backend("cpu")
 
-const Ntimesteps = 25        # Number of timesteps in the AD'ed window
-const Nspinup    = 100        # Number of timesteps that the model is spun up
+input1 = 25
+input2 = 100
+
+if length(ARGS) == 2
+    input1 = parse(Int, ARGS[1]) 
+    input2 = parse(Int, ARGS[2]) 
+end
+
+const Ntimesteps = input1       # Number of timesteps in zonal transport computed / AD'ed part
+const Nspinup    = input2       # Number of timesteps that the model is spun up
 
 graph_directory = "run_abernathy_model_ad_spinup" * string(Nspinup) * "_" * string(Ntimesteps) * "steps/"
 
@@ -81,6 +89,7 @@ const ρ = 999.8    # [kg/m³] reference density
 
 # Baseline GM/Redi coefficient (used for the unperturbed κᵢ field) [m²/s]:
 const κ_gm_background = 1e3
+const κ_log_bound = 3.0   # κ confined to κ_bg·e^±3 ≈ [5e1, 2e4] m²/s
 
 parameters = (
     Ly = Ly,
@@ -281,6 +290,93 @@ function temperature_salinity_init(grid, p)
     return Tᵢ, Sᵢ
 end
 
+#####
+##### NN features and the NN → κ update (successor of the κᵢ pathway)
+#####
+# Every feature is local and nondimensional, so the learned map ξ → κ/κ_bg is a
+# statement about the flow, not about this grid, domain, or unit system.
+# Derivatives are slicing-based finite differences: they trace cleanly under
+# Reactant (unlike scalar loops / set! with functions) and they are
+# feature-grade approximations — NOT staggered-grid-correct operators. Fine for
+# O(1) NN inputs; do not reuse for dynamics.
+
+# Constant feature ingredients, built host-side ONCE and moved to the device.
+# Full (Nx,Ny,Nz) arrays cost ~3 MB each — negligible, and they keep
+# compute_features to pure broadcasts on same-shaped arrays.
+function build_feature_constants()
+    zc  = 0.5 .* (z_faces[1:Nz] .+ z_faces[2:Nz+1])       # cell-center depths (Nz,)
+    Δzb = reshape(zc[2:Nz] .- zc[1:Nz-1], 1, 1, Nz - 1)   # center-to-center spacing
+
+    yc = (collect(1:Ny) .- 0.5) .* (Ly / Ny)              # cell-center y (Ny,)
+    fℓ = abs.(f .+ β .* yc)                               # |f| on the β-plane
+
+    fullz(v) = ones(Nx, Ny, 1) .* reshape(v, 1, 1, Nz)
+    fully(v) = ones(Nx, 1, Nz) .* reshape(v, 1, Ny, 1)
+
+    return (
+        Δx           = Lx / Nx,
+        Δy           = Ly / Ny,
+        Δz_between   = Reactant.to_rarray(Δzb),
+        f²           = Reactant.to_rarray(fully(fℓ .^ 2)),
+        N²_floor     = 1e-9,                                       # [s⁻²] clip for divisions
+        N²_ref       = α * g * parameters.ΔT / parameters.h,       # initial pycnocline N²
+        Ld_prefactor = Reactant.to_rarray(fully(Lz ./ (π .* fℓ .* (Lx / Nx)))),  # · N → L_d/Δx
+        z_over_H     = Reactant.to_rarray(fullz(-zc ./ Lz)),       # fractional depth ∈ (0,1)
+        y_dist       = Reactant.to_rarray(fully(min.(yc, Ly .- yc) ./ Ly)),      # wall distance
+    )
+end
+
+function compute_features(model, fc)
+    T = model.tracers.T[1:Nx, 1:Ny, 1:Nz]     # same traced-indexing idiom as the objective
+    b = (α * g) .* T   # linear-EOS buoyancy, thermal part (S is uniform here; switch to
+                       # full-EOS buoyancy once S is dynamically active / TEOS10 is on)
+
+    # ∂b/∂z between cell centers on the stretched grid, edge-padded at the bottom (k = 1):
+    dbdz = (b[:, :, 2:Nz] .- b[:, :, 1:Nz-1]) ./ fc.Δz_between
+    dbdz = cat(dbdz[:, :, 1:1], dbdz; dims = 3)
+    N²   = max.(dbdz, fc.N²_floor)
+
+    # ∂b/∂x (x periodic: wrap by slicing + cat) and ∂b/∂y (edge-padded at the walls):
+    b_e  = cat(b[2:Nx, :, :],  b[1:1, :, :];    dims = 1)
+    b_w  = cat(b[Nx:Nx, :, :], b[1:Nx-1, :, :]; dims = 1)
+    dbdx = (b_e .- b_w) ./ (2 * fc.Δx)
+    dbdy = (b[:, 2:Ny, :] .- b[:, 1:Ny-1, :]) ./ fc.Δy
+    dbdy = cat(dbdy[:, 1:1, :], dbdy; dims = 2)
+
+    M² = sqrt.(dbdx .^ 2 .+ dbdy .^ 2)
+
+    slope = M² ./ N²                       # isopycnal slope magnitude |S|
+    invRi = (M² .^ 2) ./ (N² .* fc.f²)     # thermal-wind 1/Ri = M⁴/(N²f²)
+    N²rel = N² ./ fc.N²_ref                # vertical structure (Ferreira et al. 2005)
+    Ld_dx = sqrt.(N²) .* fc.Ld_prefactor   # deformation radius / Δx (local-N proxy)
+
+    return (; slope, invRi, N²rel, Ld_dx, N = sqrt.(N²),
+              z_over_H = fc.z_over_H, y_dist = fc.y_dist)
+end
+
+# Successor of `set!(closure.κ, κᵢ)`: evaluate the CURRENT model state
+# and write the resulting coefficient fields into the ISSD closure. Because this
+# is called inside the differentiated function, Enzyme carries the closure-field
+# adjoints back through reshape/exp/tanh/matmuls into the state the features were
+# computed from.
+const α_visbeck  = 0.015          # Visbeck's coefficient
+const L_visbeck  = 100kilometers  # baroclinic-zone width scale
+const r_symmetric = 1.0           # κ_symmetric / κ_skew, NEED TO IMPLEMENT
+
+function update_gmredi_κ!(model, fc, κᵢ)
+    F = compute_features(model, fc)
+
+    σ_eady = sqrt.(fc.f²) .* sqrt.(F.invRi)          # = M²/N  [s⁻¹]
+    κ_raw  = α_visbeck .* σ_eady .* L_visbeck^2 .* F.N²rel       # Visbeck × Ferreira structure
+
+    logμ   = log.(max.(κ_raw, 1e-6) ./ κ_gm_background)
+    κ_skew = κᵢ * exp.(κ_log_bound .* tanh.(logμ ./ κ_log_bound))
+
+    set!(model.closure[3].κ_skew,      reshape(κ_skew, Nx, Ny, Nz))
+    set!(model.closure[3].κ_symmetric, reshape(κ_skew, Nx, Ny, Nz)) # TODO: multiply by r_symmetric
+    return nothing
+end
+
 # GM/Redi coefficient "initial condition". A single field is used to set both
 # κ_skew and κ_symmetric inside the differentiated function, so dκᵢ accumulates
 # the sensitivity through both pathways.
@@ -313,16 +409,20 @@ end
 #####
 ##### Spin up (because step cound is hardcoded we need separate functions for each loop...)
 #####
+const M = 5
 
-function spinup_loop!(model)
+function spinup_loop!(model, fconst, κᵢ)
     Δt = model.clock.last_Δt
     @trace mincut = true track_numbers = false for i = 1:Nspinup
         time_step!(model, Δt)
+        #if i % M == 0
+        #    update_gmredi_κ!(model, fconst, κᵢ)
+        #end
     end
     return nothing
 end
 
-function spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, κᵢ, u_wind_stress, v_wind_stress, temp_flux)
+function spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, κᵢ, fconst, u_wind_stress, v_wind_stress, temp_flux)
     # setting IC's and BC's:
     set!(model.velocities.u.boundary_conditions.top.condition, u_wind_stress)
     set!(model.velocities.v.boundary_conditions.top.condition, v_wind_stress)
@@ -330,15 +430,16 @@ function spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, κᵢ, u_wind_stress
     set!(model.tracers.S, Sᵢ)
     set!(model.tracers.T.boundary_conditions.top.condition, temp_flux)
 
-    set!(model.closure[3].κ_skew,      κᵢ)
-    set!(model.closure[3].κ_symmetric, κᵢ)
+    #set!(model.closure[3].κ_skew,      κᵢ)
+    #set!(model.closure[3].κ_symmetric, κᵢ)
+    update_gmredi_κ!(model, fconst, κᵢ)
 
     # Initialize the model
     model.clock.iteration = 0
     model.clock.time = 0
 
     # Step it forward
-    spinup_loop!(model)
+    spinup_loop!(model, fconst, κᵢ)
 
     return nothing
 end
@@ -355,7 +456,7 @@ function loop!(model)
     return nothing
 end
 
-function run_reentrant_channel_model!(model, Tᵢ, Sᵢ, κᵢ, u_wind_stress, v_wind_stress, temp_flux)
+function run_reentrant_channel_model!(model, Tᵢ, Sᵢ, κᵢ, fconst, u_wind_stress, v_wind_stress, temp_flux)
     # setting IC's and BC's:
     set!(model.velocities.u.boundary_conditions.top.condition, u_wind_stress)
     set!(model.velocities.v.boundary_conditions.top.condition, v_wind_stress)
@@ -366,8 +467,9 @@ function run_reentrant_channel_model!(model, Tᵢ, Sᵢ, κᵢ, u_wind_stress, v
     # Set the GM/Redi coefficients from the κᵢ argument. Because this happens
     # *inside* the differentiated function, Enzyme propagates the adjoints of
     # both closure fields back into dκᵢ.
-    set!(model.closure[3].κ_skew,      κᵢ)
-    set!(model.closure[3].κ_symmetric, κᵢ)
+    #set!(model.closure[3].κ_skew,      κᵢ)
+    #set!(model.closure[3].κ_symmetric, κᵢ)
+    update_gmredi_κ!(model, fconst, κᵢ)
 
     # Initialize the model
     model.clock.iteration = 0
@@ -386,22 +488,22 @@ end
 # midline zonal transport, which a local κ perturbation cannot reach in one
 # hour of model time. (The transport objective is kept below, commented, for
 # production use once the gradient is verified.)
-function estimate_tracer_error(model, initial_temperature, initial_salinity, κᵢ, u_wind_stress, v_wind_stress, temp_flux, Δz, mld)
-    run_reentrant_channel_model!(model, initial_temperature, initial_salinity, κᵢ, u_wind_stress, v_wind_stress, temp_flux)
+function estimate_tracer_error(model, initial_temperature, initial_salinity, κᵢ, fconst, u_wind_stress, v_wind_stress, temp_flux, Δz, mld)
+    run_reentrant_channel_model!(model, initial_temperature, initial_salinity, κᵢ, fconst, u_wind_stress, v_wind_stress, temp_flux)
 
     Nx, Ny, Nz = size(model.grid)
 
-    T_end  = model.tracers.T[1:Nx, 1:Ny, 1:Nz]
-    T_init = initial_temperature[1:Nx, 1:Ny, 1:Nz]
+    #T_end  = model.tracers.T[1:Nx, 1:Ny, 1:Nz]
+    #T_init = initial_temperature[1:Nx, 1:Ny, 1:Nz]
 
-    return sum(abs2, T_end .- T_init)
+    #return sum(abs2, T_end .- T_init)
 
     # Production objective (zonal transport in Sv):
-    # zonal_transport = (model.velocities.u[x_midpoint,1:Ny,1:Nz] .* model.grid.Δyᵃᶜᵃ) .* Δz
-    # return sum(zonal_transport) / 1e6
+    zonal_transport = (model.velocities.u[x_midpoint,1:Ny,1:Nz] .* model.grid.Δyᵃᶜᵃ) .* Δz
+    return sum(zonal_transport) / 1e6
 end
 
-function differentiate_tracer_error(model, Tᵢ, Sᵢ, κᵢ, u_wind_stress, v_wind_stress, temp_flux, Δz, mld,
+function differentiate_tracer_error(model, Tᵢ, Sᵢ, κᵢ, fconst, u_wind_stress, v_wind_stress, temp_flux, Δz, mld,
                                    dmodel, dTᵢ, dSᵢ, dκᵢ, du_wind_stress, dv_wind_stress, dtemp_flux, dΔz, dmld)
 
     dedν = autodiff(set_strong_zero(Enzyme.ReverseWithPrimal),
@@ -410,6 +512,7 @@ function differentiate_tracer_error(model, Tᵢ, Sᵢ, κᵢ, u_wind_stress, v_w
                     Duplicated(Tᵢ, dTᵢ),
                     Duplicated(Sᵢ, dSᵢ),
                     Duplicated(κᵢ, dκᵢ),
+                    Const(fconst),
                     Duplicated(u_wind_stress, du_wind_stress),
                     Duplicated(v_wind_stress, dv_wind_stress),
                     Duplicated(temp_flux, dtemp_flux),
@@ -439,6 +542,7 @@ function fd_directional_gradient_check(rspinup!, restimate,
                                        grid, Δt₀, parameters,
                                        Tᵢ₀, Sᵢ₀,      # pre-spinup ICs (deterministic replay of the spinup)
                                        Tᵢ, Sᵢ,        # post-spinup ICs (arguments of the AD'd estimate call)
+                                       fconst,
                                        u_wind_stress, v_wind_stress, T_flux, Δz, mld,
                                        dκᵢ,           # AD gradient field
                                        v;             # direction field
@@ -457,7 +561,7 @@ function fd_directional_gradient_check(rspinup!, restimate,
     function perturbed_estimate(δ)
         model_fd = build_model(grid, Δt₀, parameters)
         κ_fd = kappa_init(model_fd.grid)
-        rspinup!(model_fd, Tᵢ₀, Sᵢ₀, κ_fd, u_wind_stress, v_wind_stress, T_flux)
+        rspinup!(model_fd, Tᵢ₀, Sᵢ₀, κ_fd, fconst, u_wind_stress, v_wind_stress, T_flux)
 
         # κ = background + δ v, applied on the interior only (matching where the
         # adjoint lives; halos are refilled by set! inside the estimate run):
@@ -465,7 +569,7 @@ function fd_directional_gradient_check(rspinup!, restimate,
         κ_h[ir, jr, kr] .+= δ .* v_h[ir, jr, kr]
         copyto!(parent(κ_fd), κ_h)
 
-        return restimate(model_fd, Tᵢ, Sᵢ, κ_fd, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
+        return restimate(model_fd, Tᵢ, Sᵢ, κ_fd, fconst, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
     end
 
     for epsilon in epsilon_range
@@ -503,6 +607,9 @@ Tᵢ, Sᵢ        = temperature_salinity_init(model.grid, parameters)
 mld           = Field{Center, Center, Nothing}(model.grid)
 Δz            = Reactant.ConcreteRArray(Δz)
 
+# Precomputed constant feature ingredients (device-resident):
+fconst = build_feature_constants()
+
 # Direction field for the directional-derivative test (:gaussian or :uniform):
 v_direction = kappa_direction_init(model.grid; kind = :gaussian)
 
@@ -531,9 +638,9 @@ dΔz            = Enzyme.make_zero(Δz)
 
 @info "Compiling the model run... (forward 'restimate_tracer_error' is needed for the FD check)"
 tic = time()
-rspinup_reentrant_channel_model! = @compile raise_first=true raise=true sync=true  spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, κᵢ, u_wind_stress, v_wind_stress, T_flux)
-restimate_tracer_error = @compile raise_first=true raise=true sync=true estimate_tracer_error(model, Tᵢ, Sᵢ, κᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-rdifferentiate_tracer_error = @compile raise_first=true raise=true sync=true  differentiate_tracer_error(model, Tᵢ, Sᵢ, κᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld,
+rspinup_reentrant_channel_model! = @compile raise_first=true raise=true sync=true  spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, κᵢ, fconst, u_wind_stress, v_wind_stress, T_flux)
+restimate_tracer_error = @compile raise_first=true raise=true sync=true estimate_tracer_error(model, Tᵢ, Sᵢ, κᵢ, fconst, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
+rdifferentiate_tracer_error = @compile raise_first=true raise=true sync=true  differentiate_tracer_error(model, Tᵢ, Sᵢ, κᵢ, fconst, u_wind_stress, v_wind_stress, T_flux, Δz, mld,
                                                                                                         dmodel, dTᵢ, dSᵢ, dκᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
 compile_toc = time() - tic
 
@@ -548,7 +655,7 @@ filename = graph_directory * "data_init.jld2"
 if !isdir(graph_directory) Base.Filesystem.mkdir(graph_directory) end
 
 if isa(model.grid, ImmersedBoundaryGrid)
-    bottom_height = model.grid.immersed_boundary.bottom_height
+    bottom_height = bottom_height_field(model.grid)
 else
     bottom_height = Field{Center, Center, Nothing}(model.grid)
     set!(bottom_height, -Lz)
@@ -556,22 +663,62 @@ end
 
 @info "Spinup the model for $Nspinup timesteps, save the T and S from this state:"
 tic = time()
-rspinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, κᵢ, u_wind_stress, v_wind_stress, T_flux)
+rspinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, κᵢ, fconst, u_wind_stress, v_wind_stress, T_flux)
 @allowscalar set!(Tᵢ, model.tracers.T)
 @allowscalar set!(Sᵢ, model.tracers.S)
 spinup_toc = time() - tic
 @show spinup_toc
 
+jldsave(filename; Nx, Ny, Nz,
+                  bottom_height=convert(Array, interior(bottom_height)),
+                  T_init=convert(Array, interior(model.tracers.T)),
+                  S_init=convert(Array, interior(model.tracers.S)),
+                  ssh=convert(Array, interior(model.free_surface.displacement)),
+                  e_init=convert(Array, interior(model.tracers.e)),
+                  u_wind_stress=convert(Array, interior(u_wind_stress)),
+                  v_wind_stress=convert(Array, interior(v_wind_stress)),
+                  dkappaT_init=convert(Array, interior(dmodel.closure[2].κ[1])),
+                  dkappaS_init=convert(Array, interior(dmodel.closure[2].κ[2])),
+                  T_flux=convert(Array, interior(T_flux)),
+                  kappa_i=convert(Array, interior(κᵢ)),
+                  kappa_skew=convert(Array, interior(model.closure[3].κ_skew)),
+                  kappa_symmetric=convert(Array, interior(model.closure[3].κ_symmetric)))
+
 @info "Computing the AD gradient (dκᵢ is accumulated in-place):"
-dedν = rdifferentiate_tracer_error(model, Tᵢ, Sᵢ, κᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld,
+dedν = rdifferentiate_tracer_error(model, Tᵢ, Sᵢ, κᵢ, fconst, u_wind_stress, v_wind_stress, T_flux, Δz, mld,
                                    dmodel, dTᵢ, dSᵢ, dκᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
+
+filename = graph_directory * "data_final.jld2"
+
+jldsave(filename; Nx, Ny, Nz,
+                  T_final=convert(Array, interior(model.tracers.T)),
+                  S_final=convert(Array, interior(model.tracers.S)),
+                  e_final=convert(Array, interior(model.tracers.e)),
+                  ssh=convert(Array, interior(model.free_surface.displacement)),
+                  u=convert(Array, interior(model.velocities.u)),
+                  v=convert(Array, interior(model.velocities.v)),
+                  w=convert(Array, interior(model.velocities.w)),
+                  mld=convert(Array, interior(mld)),
+                  #zonal_transport=convert(Float64, output),
+                  zonal_transport=convert(Float64, dedν[2]),
+                  du_wind_stress=convert(Array, interior(du_wind_stress)),
+                  dv_wind_stress=convert(Array, interior(dv_wind_stress)),
+                  dT=convert(Array, interior(dTᵢ)),
+                  dS=convert(Array, interior(dSᵢ)),
+                  dkappaT_final=convert(Array, interior(dmodel.closure[2].κ[1])),
+                  dkappaS_final=convert(Array, interior(dmodel.closure[2].κ[2])),
+                  dT_flux=convert(Array, interior(dT_flux)),
+                  dkappa_i=convert(Array, interior(dκᵢ)),
+                  kappa_skew=convert(Array, interior(model.closure[3].κ_skew)),
+                  kappa_symmetric=convert(Array, interior(model.closure[3].κ_symmetric)))
+
 
 #
 # Directional-derivative FD comparison:
 #
 fd_directional_gradient_check(rspinup_reentrant_channel_model!, restimate_tracer_error,
                               grid, Δt₀, parameters,
-                              Tᵢ₀, Sᵢ₀, Tᵢ, Sᵢ,
+                              Tᵢ₀, Sᵢ₀, Tᵢ, Sᵢ, fconst,
                               u_wind_stress, v_wind_stress, T_flux, Δz, mld,
                               dκᵢ, v_direction;
                               epsilon_range = (1e2, 1e1, 1e0, 1e-1))

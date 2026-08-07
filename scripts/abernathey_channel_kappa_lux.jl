@@ -53,8 +53,16 @@ Oceananigans.defaults.FloatType = Float64
 @info "To specify architecture uncomment line 'Reactant.set_default_backend(\"cpu\")' "
 #Reactant.set_default_backend("cpu")
 
-const Ntimesteps = 25        # Number of timesteps in the AD'ed window
-const Nspinup    = 100        # Number of timesteps that the model is spun up
+input1 = 25
+input2 = 100
+
+if length(ARGS) == 2
+    input1 = parse(Int, ARGS[1]) 
+    input2 = parse(Int, ARGS[2]) 
+end
+
+const Ntimesteps = input1       # Number of timesteps in zonal transport computed / AD'ed part
+const Nspinup    = input2       # Number of timesteps that the model is spun up
 
 graph_directory = "run_abernathy_model_ad_spinup" * string(Nspinup) * "_" * string(Ntimesteps) * "steps/"
 
@@ -424,6 +432,9 @@ end
 function update_gmredi_κ!(model, ps, st, fc)
     X = compute_features(model, fc)
     Y, _ = nn(X, ps, st)                  # (2 × Nx·Ny·Nz); st is empty for a plain MLP
+
+    @show X
+    @show Y
 
     logμ_skew = κ_log_bound .* tanh.(Y[1, :] ./ κ_log_bound)
     logμ_symm = κ_log_bound .* tanh.(Y[2, :] ./ κ_log_bound)
