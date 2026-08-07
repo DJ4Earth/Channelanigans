@@ -322,13 +322,16 @@ function spinup_loop!(model)
     return nothing
 end
 
-function spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, temp_flux)
+function spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, κᵢ, u_wind_stress, v_wind_stress, temp_flux)
     # setting IC's and BC's:
     set!(model.velocities.u.boundary_conditions.top.condition, u_wind_stress)
     set!(model.velocities.v.boundary_conditions.top.condition, v_wind_stress)
     set!(model.tracers.T, Tᵢ)
     set!(model.tracers.S, Sᵢ)
     set!(model.tracers.T.boundary_conditions.top.condition, temp_flux)
+
+    set!(model.closure[3].κ_skew,      κᵢ)
+    set!(model.closure[3].κ_symmetric, κᵢ)
 
     # Initialize the model
     model.clock.iteration = 0
@@ -453,11 +456,11 @@ function fd_directional_gradient_check(rspinup!, restimate,
 
     function perturbed_estimate(δ)
         model_fd = build_model(grid, Δt₀, parameters)
-        rspinup!(model_fd, Tᵢ₀, Sᵢ₀, u_wind_stress, v_wind_stress, T_flux)
+        κ_fd = kappa_init(model_fd.grid)
+        rspinup!(model_fd, Tᵢ₀, Sᵢ₀, κ_fd, u_wind_stress, v_wind_stress, T_flux)
 
         # κ = background + δ v, applied on the interior only (matching where the
         # adjoint lives; halos are refilled by set! inside the estimate run):
-        κ_fd = kappa_init(model_fd.grid)
         κ_h = Array(parent(κ_fd))
         κ_h[ir, jr, kr] .+= δ .* v_h[ir, jr, kr]
         copyto!(parent(κ_fd), κ_h)
@@ -528,7 +531,7 @@ dΔz            = Enzyme.make_zero(Δz)
 
 @info "Compiling the model run... (forward 'restimate_tracer_error' is needed for the FD check)"
 tic = time()
-rspinup_reentrant_channel_model! = @compile raise_first=true raise=true sync=true  spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux)
+rspinup_reentrant_channel_model! = @compile raise_first=true raise=true sync=true  spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, κᵢ, u_wind_stress, v_wind_stress, T_flux)
 restimate_tracer_error = @compile raise_first=true raise=true sync=true estimate_tracer_error(model, Tᵢ, Sᵢ, κᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
 rdifferentiate_tracer_error = @compile raise_first=true raise=true sync=true  differentiate_tracer_error(model, Tᵢ, Sᵢ, κᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld,
                                                                                                         dmodel, dTᵢ, dSᵢ, dκᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
@@ -553,7 +556,7 @@ end
 
 @info "Spinup the model for $Nspinup timesteps, save the T and S from this state:"
 tic = time()
-rspinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux)
+rspinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, κᵢ, u_wind_stress, v_wind_stress, T_flux)
 @allowscalar set!(Tᵢ, model.tracers.T)
 @allowscalar set!(Sᵢ, model.tracers.S)
 spinup_toc = time() - tic
