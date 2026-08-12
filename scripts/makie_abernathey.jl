@@ -14,7 +14,7 @@ using Oceananigans.Grids: xnode, ynode, znode
 
 using GLMakie
 
-graph_directory = "run_abernathy_model_ad_spinup1000_100steps/"
+graph_directory = "tweaked_closures_run_abernathy_model_ad_spinup5000_8100steps/"
 #graph_directory = "run_abernathy_model_ad_spinup40000000_8100steps/"
 
 #
@@ -120,6 +120,7 @@ dS             = data2["dS"]
 dT_flux        = data2["dT_flux"]
 dkappaT_final  = data2["dkappaT_final"]
 dkappaS_final  = data2["dkappaS_final"]
+dκ_final = data2["dkappa_i"]
 close(data2)
 
 using GLMakie
@@ -499,6 +500,12 @@ plot_variables_four_panels_2x2(T_final[:,:,31], T_final[:,:,14], T_final[:,:,4],
                           p1_min=true, p2_min=true, p3_min=true, p4_min=true)
 
 
+plot_variables_four_panels_2x2(dκ_final[:,:,31], dκ_final[:,:,14], dκ_final[:,:,4], dκ_final[:,:,1], xc, yc, xc, yc, xc, yc, xc, yc,
+                          "(a) ∂J/∂T(x, y, 15m)", "(b) ∂J/∂T(x, y, 504m)", "(c) ∂J/∂κₜ(x, y, 15m)", "(d) ∂J/∂κₜ(x, y, 504m)",
+                          "Sv / °C", "Sv / °C", "Sv / m²s⁻¹", "Sv / m²s⁻¹",
+                          graph_directory * "gradients_gmredi_more_xy.png", landmask_centers4)
+
+
 j′ = round(Int, grid.Ny / 2)
 
 landmask_gradients2 = [landmask_center, landmask_v]
@@ -506,6 +513,12 @@ plot_variables_two_panels_1x2(du_wind_stress[:,:,1], dv_wind_stress[:,:,1], xu, 
                           "(a) ∂J/∂τₓ(x, y)", "(b) ∂J/∂τᵧ(x, y)",
                           "Sv / m²s⁻²", "Sv / m²s⁻²",
                           graph_directory * "gradients_windstress_xy.png", landmask_gradients2)
+
+landmask_gradients2 = [landmask_center, landmask_center]
+plot_variables_two_panels_1x2(dκ_final[:,:,14], dκ_final[:,:,31], xc, yc, xc, yc,
+                          "(a) ∂J/∂κᵢ(x, y)", "(b) ∂J/∂κᵢ(x, y)",
+                          "Sv / m²s⁻²", "Sv / m²s⁻²",
+                          graph_directory * "gradients_gmredi_xy.png", landmask_gradients2)
 
 z_thicknesses = zw[2:end] - zw[1:end-1]
 

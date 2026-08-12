@@ -40,7 +40,7 @@ end
 const Ntimesteps = input1       # Number of timesteps in zonal transport computed / AD'ed part
 const Nspinup    = input2       # Number of timesteps that the model is spun up
 
-graph_directory = "run_abernathy_model_ad_spinup" * string(Nspinup) * "_" * string(Ntimesteps) * "steps/"
+graph_directory = "tweaked_closures_run_abernathy_model_ad_spinup" * string(Nspinup) * "_" * string(Ntimesteps) * "steps/"
 
 # GRADIENT-VERIFICATION MODE:
 # Centered(order=2) advection is Float64 end-to-end and smooth. WENO computes its
@@ -196,7 +196,7 @@ function build_model(grid, Δt₀, parameters)
     κz_field = Field{Center, Center, Center}(grid)
     κz_array = zeros(Nx, Ny, Nz)
 
-    κz_add = 5e-5  # m² / s at surface
+    κz_add = 1e-5  # m² / s at surface
     decay_scale = 5   # layers
     for k in 1:Nz
         taper = exp(- (k-1) / decay_scale)
@@ -221,6 +221,8 @@ function build_model(grid, Δt₀, parameters)
     @allowscalar set!(κ_symmetric_field, κ_gm_background)
 
     gmredi_closure = IsopycnalSkewSymmetricDiffusivity(κ_skew=κ_skew_field, κ_symmetric=κ_symmetric_field)
+
+    closure = use_smooth_advection ? (horizontal_closure, vertical_closure, gmredi_closure, biharmonic_closure) : (horizontal_closure, vertical_closure, gmredi_closure)
 
     # Smooth, fully-Float64 advection for gradient verification; WENO for production.
     advection = use_smooth_advection ? Centered(order=2) : WENO(order=3)
