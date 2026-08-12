@@ -32,7 +32,7 @@ Oceananigans.defaults.FloatType = Float64
 input1 = 25
 input2 = 100
 
-if length(ARGS) == 2
+if length(ARGS) >= 2
     input1 = parse(Int, ARGS[1]) 
     input2 = parse(Int, ARGS[2]) 
 end
@@ -47,7 +47,14 @@ graph_directory = "tweaked_closures_run_abernathy_model_ad_spinup" * string(Nspi
 # smoothness-indicator divisions in Float32 (see ConvertingDivision{Float32} in the
 # model type), which puts a ~1e-7 relative noise floor on the primal and destroys
 # the FD arm of the comparison. Set false to restore WENO for production runs.
-const use_smooth_advection = true
+tmp_smooth_advection = true
+if length(ARGS) >= 3
+    tmp_smooth_advection = false
+    graph_directory = "weno_" * graph_directory
+end
+const use_smooth_advection = tmp_smooth_advection
+
+@show use_smooth_advection
 
 #
 # Model parameters to set first:
@@ -228,6 +235,9 @@ function build_model(grid, Δt₀, parameters)
     advection = use_smooth_advection ? Centered(order=2) : WENO(order=3)
 
     @info "Building a model..."
+
+    @info "Advection scheme:"
+    @show advection
 
     model = HydrostaticFreeSurfaceModel(
         grid;
@@ -495,14 +505,13 @@ function estimate_tracer_error(model, initial_temperature, initial_salinity, κ�
 
     Nx, Ny, Nz = size(model.grid)
 
-    #T_end  = model.tracers.T[1:Nx, 1:Ny, 1:Nz]
-    #T_init = initial_temperature[1:Nx, 1:Ny, 1:Nz]
-
-    #return sum(abs2, T_end .- T_init)
+    T_end  = model.tracers.T[1:Nx, 1:Ny, 1:Nz]
+    T_init = initial_temperature[1:Nx, 1:Ny, 1:Nz]
+    return sum(abs2, T_end .- T_init)
 
     # Production objective (zonal transport in Sv):
-    zonal_transport = (model.velocities.u[x_midpoint,1:Ny,1:Nz] .* model.grid.Δyᵃᶜᵃ) .* Δz
-    return sum(zonal_transport) / 1e6
+    #zonal_transport = (model.velocities.u[x_midpoint,1:Ny,1:Nz] .* model.grid.Δyᵃᶜᵃ) .* Δz
+    #return sum(zonal_transport) / 1e6
 end
 
 function differentiate_tracer_error(model, Tᵢ, Sᵢ, κᵢ, fconst, u_wind_stress, v_wind_stress, temp_flux, Δz, mld,

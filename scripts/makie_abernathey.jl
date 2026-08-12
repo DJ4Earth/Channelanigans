@@ -14,7 +14,7 @@ using Oceananigans.Grids: xnode, ynode, znode
 
 using GLMakie
 
-graph_directory = "tweaked_closures_run_abernathy_model_ad_spinup5000_8100steps/"
+graph_directory = "tweaked_closures_run_abernathy_model_ad_spinup5000_1600steps/"
 #graph_directory = "run_abernathy_model_ad_spinup40000000_8100steps/"
 
 #
