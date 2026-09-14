@@ -427,6 +427,7 @@ function spinup_loop!(model, fconst, κᵢ)
     Δt = model.clock.last_Δt
     @trace mincut = true track_numbers = false for i = 1:Nspinup
         time_step!(model, Δt)
+        update_gmredi_κ!(model, fconst, κᵢ)
         #if i % M == 0
         #    update_gmredi_κ!(model, fconst, κᵢ)
         #end
@@ -460,10 +461,11 @@ end
 ##### Forward simulation (not actually using the Simulation struct)
 #####
 
-function loop!(model)
+function loop!(model, fconst, κᵢ)
     Δt = model.clock.last_Δt
     @trace mincut = true checkpointing = true track_numbers = false for i = 1:Ntimesteps
         time_step!(model, Δt)
+        update_gmredi_κ!(model, fconst, κᵢ)
     end
     return nothing
 end
@@ -488,7 +490,7 @@ function run_reentrant_channel_model!(model, Tᵢ, Sᵢ, κᵢ, fconst, u_wind_s
     model.clock.time = 0
 
     # Step it forward
-    loop!(model)
+    loop!(model, fconst, κᵢ)
 
     return nothing
 end

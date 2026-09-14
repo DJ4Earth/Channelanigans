@@ -43,8 +43,8 @@ graph_directory = "run_abernathy_model_ad_spinup" * string(Nspinup) * "_" * stri
 #
 
 # number of grid points
-const Nx = 80  # LowRes: 48
-const Ny = 160 # LowRes: 96
+const Nx = 40  # LowRes: 48
+const Ny = 80 # LowRes: 96
 const Nz = 32
 
 const x_midpoint = Int(Nx / 2) + 1
