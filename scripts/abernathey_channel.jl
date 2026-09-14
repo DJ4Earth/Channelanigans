@@ -261,36 +261,6 @@ function temperature_salinity_init(grid, parameters)
 end
 
 #####
-##### Spin up (because step cound is hardcoded we need separate functions for each loop...)
-#####
-
-function spinup_loop!(model)
-    Δt = model.clock.last_Δt
-    @trace mincut = true track_numbers = false for i = 1:Nspinup
-        time_step!(model, Δt)
-    end
-    return nothing
-end
-
-function spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, temp_flux)
-    # setting IC's and BC's:
-    set!(model.velocities.u.boundary_conditions.top.condition, u_wind_stress)
-    set!(model.velocities.v.boundary_conditions.top.condition, v_wind_stress)
-    set!(model.tracers.T, Tᵢ)
-    set!(model.tracers.S, Sᵢ)
-    set!(model.tracers.T.boundary_conditions.top.condition, temp_flux)
-
-    # Initialize the model
-    model.clock.iteration = 0
-    model.clock.time = 0
-
-    # Step it forward
-    spinup_loop!(model)
-
-    return nothing
-end
-
-#####
 ##### Forward simulation (not actually using the Simulation struct)
 #####
 
@@ -387,49 +357,9 @@ dΔz            = Enzyme.make_zero(Δz)
 
 @info "Compiling the model run... (if you want to run forward code only, just compile 'estimate_tracer_error')"
 tic = time()
-rspinup_reentrant_channel_model! = @compile raise_first=true raise=true sync=true  spinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux)
-#restimate_tracer_error = @compile raise_first=true raise=true sync=true estimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
 rdifferentiate_tracer_error = @compile raise_first=true raise=true sync=true  differentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld,
                                                                                                         dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
 compile_toc = time() - tic
 
 @show compile_toc
 
-@info "Running the simulation..."
-
-using FileIO, JLD2
-
-filename = graph_directory * "data_init.jld2"
-
-if !isdir(graph_directory) Base.Filesystem.mkdir(graph_directory) end
-
-if isa(model.grid, ImmersedBoundaryGrid)
-    bottom_height = model.grid.immersed_boundary.bottom_height
-else
-    bottom_height = Field{Center, Center, Nothing}(model.grid)
-    set!(bottom_height, -Lz)
-end
-
-@info "Spinup the model for $Nspinup timesteps, save the T and S from this state:"
-tic = time()
-rspinup_reentrant_channel_model!(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux)
-@allowscalar set!(Tᵢ, model.tracers.T)
-@allowscalar set!(Sᵢ, model.tracers.S)
-spinup_toc = time() - tic
-@show spinup_toc
-
-
-
-@info "Running for results, then profiling:"
-#output = restimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-dedν   = rdifferentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld, dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
-
-
-@info "Running the simulation for $Ntimesteps timesteps ... (if you want to run the forward code only, just run 'restimate_tracer_error')"
-tic = time()
-#Reactant.Profiler.@profile output = restimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld)
-Reactant.Profiler.@profile rdifferentiate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, T_flux, Δz, mld, dmodel, dTᵢ, dSᵢ, du_wind_stress, dv_wind_stress, dT_flux, dΔz, dmld)
-run_toc = time() - tic
-
-@info "Run toc gives you the combined time of the warmup run and the counted run from @profile, so it should be somewhat over 2x the time of profile"
-@show run_toc
