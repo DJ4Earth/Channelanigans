@@ -1,0 +1,102 @@
+# Benchmark configurations: one entry per (potential) row of the CPU AD cost table.
+#
+# Reactant entries (driver = "reactant"):
+#   optimize      = "default" (=> @compile optimize=true) or any Reactant optimization
+#                   mode symbol name, e.g. "after_enzyme", "only_enzyme"
+#   mincut        = @trace mincut option
+#   checkpointing = "none"     => @trace checkpointing=false
+#                   "periodic" => Reactant.Periodic(isqrt(N))  (identical to checkpointing=true)
+#                   "binomial" => Reactant.Binomial(snaps)
+#   snaps         = integer, or "log2" for Int(log2(N))   (binomial only)
+#
+# Enzyme-only entries (driver = "enzyme"; plain Julia CPU, no Reactant):
+#   checkpointing = "none"     => plain `for` loop, Enzyme stores everything
+#                   "periodic" => Checkpointing.jl Periodic(snaps)
+#                   "revolve"  => Checkpointing.jl Revolve(snaps)  (binomial)
+#   snaps         = integer, "log2" (Int(log2(N))), or "isqrt" (isqrt(N))
+#
+# Provenance: the Aug 2026 table rows map to reactant_full ... enzyme_naive below;
+# see original_results/ (or evidence/) for the logs each row came from.
+
+[table]
+# Row order of the generated table. Configs not listed here can still be run by name.
+rows = [
+    "reactant_full",
+    "reactant_after_enzyme",
+    "reactant_mincut_off",
+    "reactant_periodic",
+    "reactant_periodic_mincut_off",
+    "reactant_binomial_10",
+    "reactant_binomial_log2",
+    "enzyme_naive",
+    "enzyme_revolve_log2",
+]
+nsteps = [4, 8, 16, 32, 64, 128, 256]
+
+[configs.reactant_full]
+label         = "Fully optimized"
+driver        = "reactant"
+optimize      = "default"
+mincut        = true
+checkpointing = "none"
+
+[configs.reactant_after_enzyme]
+label         = "Enzyme-only optimization"
+driver        = "reactant"
+optimize      = "after_enzyme"
+mincut        = true
+checkpointing = "none"
+
+[configs.reactant_mincut_off]
+label         = "Fully optimized, mincut disabled"
+driver        = "reactant"
+optimize      = "default"
+mincut        = false
+checkpointing = "none"
+
+[configs.reactant_periodic]
+label         = "Fully optimized, periodic checkpointing"
+driver        = "reactant"
+optimize      = "default"
+mincut        = true
+checkpointing = "periodic"
+
+[configs.reactant_periodic_mincut_off]
+label         = "Fully optimized, periodic checkpointing, mincut disabled"
+driver        = "reactant"
+optimize      = "default"
+mincut        = false
+checkpointing = "periodic"
+
+[configs.reactant_binomial_10]
+label         = "Fully optimized, binomial checkpointing ($b = 10$)"
+driver        = "reactant"
+optimize      = "default"
+mincut        = true
+checkpointing = "binomial"
+snaps         = 10
+
+[configs.reactant_binomial_log2]
+label         = "Fully optimized, binomial checkpointing ($b = \\log_2 N$)"
+driver        = "reactant"
+optimize      = "default"
+mincut        = true
+checkpointing = "binomial"
+snaps         = "log2"
+
+[configs.enzyme_naive]
+label         = "AD only, no prior optimization"
+driver        = "enzyme"
+checkpointing = "none"
+
+[configs.enzyme_revolve_log2]
+label         = "AD only, no prior optimization, Checkpointing.jl Revolve ($b = \\log_2 N$)"
+driver        = "enzyme"
+checkpointing = "revolve"
+snaps         = "log2"
+
+[configs.enzyme_periodic_isqrt]
+label         = "AD only, no prior optimization, Checkpointing.jl periodic ($\\sqrt{N}$)"
+driver        = "enzyme"
+checkpointing = "periodic"
+snaps         = "isqrt"
