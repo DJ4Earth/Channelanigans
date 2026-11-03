@@ -5,6 +5,7 @@ results*/
 old_runs_pre_artifact/
 
 # Redundant archive of evidence/
+evidence/
 evidence.tar.gz
 
 # OS / editor cruft
