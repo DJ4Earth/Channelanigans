@@ -1,0 +1,9 @@
+# Only Project.toml, docker/, src/ and bench/ are needed in the build context.
+.git
+old_runs_pre_artifact
+results*
+evidence
+evidence.tar.gz
+Manifest.toml
+CLAUDE.md
+.DS_Store
