@@ -13,8 +13,9 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/env.sh"
 # Vista only allows Apptainer on compute nodes (on login nodes it is a stub).
 if [[ -z ${SLURM_JOB_ID:-} ]]; then
-    echo "report.sh runs the container, so it needs a compute node. Start one first:" >&2
-    echo "    idev -p $PARTITION -N 1 -n 1 -t 00:30:00 -A $ACCOUNT" >&2
+    echo "report.sh runs the container, so it needs a compute node. Either submit it as a job:" >&2
+    echo "    hpc/vista/submit.sh --report ${1:-status}" >&2
+    echo "or run it inside an interactive session:  idev -p $PARTITION -N 1 -n 1 -t 00:30:00 -A $ACCOUNT" >&2
     exit 2
 fi
 load_apptainer

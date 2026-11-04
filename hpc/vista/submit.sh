@@ -4,6 +4,7 @@
 #   hpc/vista/submit.sh --gate                          # gate job (run first)
 #   hpc/vista/submit.sh --nsteps 4,8 --walltime 04:00:00   # wave 1: all table configs
 #   hpc/vista/submit.sh --walltimes hpc/vista/walltimes.tsv  # later waves, per-case limits
+#   hpc/vista/submit.sh --report status                 # run report.sh as a short job
 #
 # Options:
 #   --configs LIST     comma-separated config names, or "table" (default: table rows)
@@ -12,6 +13,8 @@
 #   --walltimes FILE   per-case limits, lines "config<TAB>N<TAB>HH:MM:SS" (written by
 #                      plan.jl); cases not listed there are skipped
 #   --force            rerun cases that already have an ok result in $WORK
+#   --report MODE      run `report.sh MODE` (status | final) as a short batch job
+#                      instead of in an idev session; output in the log directory
 #   --dry-run          print the sbatch commands only
 #
 # One job per (config, N), each on a whole gg node. Cases that are already ok in
@@ -22,17 +25,18 @@
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/env.sh"
 
-configs=table; nsteps=""; walltime=""; walltimes=""; force=0; dry=0; gate=0
+configs=table; nsteps=""; walltime=""; walltimes=""; force=0; dry=0; gate=0; report=""
 while [[ $# -gt 0 ]]; do
     case $1 in
         --gate) gate=1 ;;
+        --report) report=$2; shift ;;
         --configs) configs=$2; shift ;;
         --nsteps) nsteps=$2; shift ;;
         --walltime) walltime=$2; shift ;;
         --walltimes) walltimes=$2; shift ;;
         --force) force=1 ;;
         --dry-run) dry=1 ;;
-        -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,25p' "$0"; exit 0 ;;
         *) echo "unknown option $1" >&2; exit 2 ;;
     esac
     shift
@@ -42,14 +46,25 @@ done
 mkdir -p "$SCRATCH_ROOT" "$WORK_ROOT" "$LOG_DIR"
 [[ -f "$SIF" ]] || { echo "SIF not found: $SIF" >&2; exit 2; }
 
-submit() {   # submit <job name> <walltime> <script> [extra --export vars]
-    local name=$1 wt=$2 script=$3 vars=${4:-}
+submit() {   # submit <job name> <walltime> <script | --wrap CMD> [extra --export vars]
+    local name=$1 wt=$2 vars=${4:-}
+    local target=("$HPC_DIR/$3")
+    [[ $3 == --wrap=* ]] && target=("$3")
     local cmd=(sbatch -A "$ACCOUNT" -p "$PARTITION" -J "$name" -t "$wt"
                -o "$LOG_DIR/%x.%j.out"
                ${MAIL_USER:+--mail-user="$MAIL_USER" --mail-type="${MAIL_TYPE:-END,FAIL}"}
-               --export="ALL,HPC_DIR=$HPC_DIR${vars:+,$vars}" "$HPC_DIR/$script")
+               --export="ALL,HPC_DIR=$HPC_DIR${vars:+,$vars}" "${target[@]}")
     if [[ $dry -eq 1 ]]; then echo "${cmd[*]}"; else "${cmd[@]}"; fi
 }
+
+if [[ -n $report ]]; then
+    [[ $report == status || $report == final ]] || { echo "--report takes status or final" >&2; exit 2; }
+    # --wrap runs report.sh from the repo (not a spooled copy), so it finds env.sh.
+    submit "ch-report-$report" "$([[ $report == final ]] && echo 01:00:00 || echo 00:20:00)" \
+        "--wrap=bash $HPC_DIR/report.sh $report"
+    echo "report log: $LOG_DIR/ch-report-$report.<jobid>.out"
+    exit 0
+fi
 
 if [[ $gate -eq 1 ]]; then
     submit ch-gate 01:30:00 gate.slurm

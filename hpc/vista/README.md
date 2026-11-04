@@ -4,10 +4,11 @@ Each table case (config × N) runs as its own SLURM job on a whole `gg` node
 (NVIDIA Grace), inside the frozen Apptainer image. The settings (allocation, SIF
 path, image digest, result locations) live in [`env.sh`](env.sh).
 
-Run every command from the repo root. Run `submit.sh` on a login node; it doesn't
-use the container. `report.sh` does use the container, and Vista only allows
-Apptainer on compute nodes, so run it inside a short interactive session:
-`idev -p gg -N 1 -n 1 -t 00:30:00`.
+Run every command from the repo root on a login node. `report.sh` uses the
+container, and Vista only allows Apptainer on compute nodes, so submit it as a
+short job with `submit.sh --report status` (or `--report final`); its output lands
+in `$WORK/channelanigans_results/slurm_logs/ch-report-<mode>.<jobid>.out`. Inside an
+`idev` session you can also run `hpc/vista/report.sh status` directly.
 
 ## 1. Gate (one job, about 1 h)
 
@@ -31,7 +32,7 @@ for larger N.
 ## 3. Later waves
 
 ```bash
-hpc/vista/report.sh status      # status of every case; writes hpc/vista/walltimes.tsv
+hpc/vista/submit.sh --report status   # status of every case; writes hpc/vista/walltimes.tsv
 hpc/vista/submit.sh --nsteps 16 --walltimes hpc/vista/walltimes.tsv
 # ... then repeat status → submit for 32,64 and 128,256
 ```
@@ -44,7 +45,7 @@ entries.
 ## 4. Finalize
 
 ```bash
-hpc/vista/report.sh final
+hpc/vista/submit.sh --report final
 ```
 
 This builds `table.tex` and `table.csv`, cross-checks gradients across configs,
