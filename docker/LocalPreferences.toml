@@ -1,0 +1,6 @@
+# Installed into the image's project. CPU-only benchmark: always use Reactant's CPU
+# build (Reactant_jll would otherwise pick its CUDA build when it detects a GPU).
+# CUDA.jl itself must still be loaded: Reactant raises KernelAbstractions kernels
+# through its CUDA extension even on CPU.
+[Reactant_jll]
+gpu = "none"

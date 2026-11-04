@@ -93,6 +93,19 @@ function stop_rss_sampler(proc, out)
     return kib
 end
 
+# Return freed heap memory to the OS (glibc only). Without this, memory freed by a
+# previous call stays resident, so the pre-call RSS (and thus the high-water mark and
+# its delta) depends on call history; observed for Enzyme-only runs (base RSS swinging
+# 3.5 → 11.8 GiB between consecutive identical calls).
+function trim_heap()
+    Sys.islinux() || return nothing
+    try
+        ccall(:malloc_trim, Cint, (Csize_t,), 0)
+    catch
+    end
+    return nothing
+end
+
 current_rss_kib() = HAS_PROC ? vm_kib("VmRSS") :
     parse(Int, strip(read(`ps -o rss= -p $(getpid())`, String)))
 
@@ -110,6 +123,7 @@ NamedTuple with `wall_s`, `peak_rss_bytes`, `base_rss_bytes`, `delta_rss_bytes`,
 """
 function measured_call(f; perf = true, sample_interval = 0.05)
     GC.gc(); GC.gc()
+    trim_heap()
 
     sampler = nothing
     if HAS_PROC
@@ -123,9 +137,11 @@ function measured_call(f; perf = true, sample_interval = 0.05)
     end
 
     perf && perf_enable()
+    window_start = time()        # Unix time; brackets the perf-enabled window
     t0 = time_ns()
     y = f()
     t1 = time_ns()
+    window_end = time()
     perf && perf_disable()
 
     peak_kib = HAS_PROC ? vm_kib("VmHWM") : max(stop_rss_sampler(sampler...), current_rss_kib())
@@ -134,7 +150,10 @@ function measured_call(f; perf = true, sample_interval = 0.05)
              peak_rss_bytes  = peak_kib * 1024,
              base_rss_bytes  = base_kib * 1024,
              delta_rss_bytes = (peak_kib - base_kib) * 1024,
-             memory_method   = method)
+             memory_method   = method,
+             perf_counted    = perf && perf_active(),
+             window_start_unix = window_start,
+             window_end_unix   = window_end)
 
     @info @sprintf("measured call: wall %.3f s, peak RSS %.3f GiB (delta %.3f GiB) [%s]",
                    stats.wall_s, stats.peak_rss_bytes / 2^30, stats.delta_rss_bytes / 2^30, method)
@@ -176,6 +195,9 @@ function environment_info()
 end
 
 function git_commit()
+    # Container images carry no .git; the build records the commit instead.
+    c = get(ENV, "CHANNELANIGANS_GIT_COMMIT", "")
+    isempty(c) || return c
     try
         root = dirname(@__DIR__)
         sha = strip(read(`git -C $root rev-parse HEAD`, String))

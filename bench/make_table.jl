@@ -1,9 +1,11 @@
 # Build the CPU AD cost table from results/<config>/N<nnnn>/{status,result}.json.
 #
-#   julia --project bench/make_table.jl [--out results] [--flops] [--delta]
+#   julia --project bench/make_table.jl [--out results] [--ci] [--flops] [--delta]
 #                                       [--configs LIST] [--nsteps LIST]
 #                                       [--latex FILE] [--csv FILE]
 #
+# Values are means over the measured calls; --ci prints "mean ± 95% CI half-width"
+# (Student-t). The CSV always carries the half-widths in extra *_ci95_halfwidth rows.
 # Prints a Markdown preview to stdout and writes LaTeX (booktabs) and CSV.
 # Cell markers: superscript m = out of memory, t = timeout, s = segfault,
 # e = other error, p = not (yet) run.
@@ -15,14 +17,14 @@ using Printf
 const REPO_ROOT = dirname(@__DIR__)
 
 function parse_args(args)
-    o = Dict{String, Any}("out" => "results", "flops" => false, "delta" => false,
+    o = Dict{String, Any}("out" => "results", "flops" => false, "delta" => false, "ci" => false,
         "configs" => "table", "nsteps" => nothing,
         "configs-file" => joinpath(REPO_ROOT, "bench", "configs.toml"),
         "latex" => nothing, "csv" => nothing)
     i = 1
     while i <= length(args)
         a = args[i]
-        if a in ("--flops", "--delta")
+        if a in ("--flops", "--delta", "--ci")
             o[a[3:end]] = true
         elseif startswith(a, "--") && i < length(args)
             o[a[3:end]] = args[i+1]; i += 1
@@ -49,6 +51,16 @@ metric(r, ::Val{:runtime}) = r["runtime_s"]
 metric(r, ::Val{:memory})  = r["peak_rss_bytes"] / 2^30
 metric(r, ::Val{:delta})   = r["delta_rss_bytes"] / 2^30
 metric(r, ::Val{:flops})   = (f = get(r, "flops_per_call", nothing); f === nothing ? nothing : f / 1e11)
+
+# 95% CI half-widths (same units as `metric`); `nothing` if unavailable.
+halfwidth(r, key) = begin
+    k = Dict(:runtime => "runtime_stats", :memory => "peak_rss_stats", :delta => "delta_rss_stats",
+             :flops => "flops_stats")
+    haskey(k, key) && get(r, k[key], nothing) !== nothing || return nothing
+    h = r[k[key]]["ci95_halfwidth"]
+    h === nothing && return nothing
+    key === :runtime ? h : key === :flops ? h / 1e11 : h / 2^30
+end
 
 const ROWS = [(:flops, "FLOPs [\$10^{11}\$]", "FLOPs [1e11]", "%.3f"),
               (:runtime, "Runtime [s]", "Runtime [s]", "%.2f"),
@@ -89,20 +101,28 @@ function main(args)
         println(tex, "\\multicolumn{$(ncol+1)}{l}{\\itshape $label} \\\\")
         println(md, "| **$label** |", repeat(" |", ncol))
         for (key, texname, mdname, f) in rows
-            texcells, mdcells, csvcells = String[], String[], String[]
+            texcells, mdcells, csvcells, csvci = String[], String[], String[], String[]
             for (status, res) in cases
                 v = status == "ok" ? metric(res, Val(key)) : nothing
                 if v === nothing
                     mark = status == "ok" ? "n" : status
-                    push!(texcells, "--\\textsuperscript{$mark}"); push!(mdcells, "–$mark"); push!(csvcells, mark)
+                    push!(texcells, "--\\textsuperscript{$mark}"); push!(mdcells, "–$mark")
+                    push!(csvcells, mark); push!(csvci, "")
                 else
+                    h = halfwidth(res, key)
                     s = fmt(f, v)
-                    push!(texcells, s); push!(mdcells, s); push!(csvcells, string(v))
+                    if o["ci"] && h !== nothing
+                        push!(texcells, "\$" * s * " \\pm " * fmt(f, h) * "\$"); push!(mdcells, s * " ± " * fmt(f, h))
+                    else
+                        push!(texcells, s); push!(mdcells, s)
+                    end
+                    push!(csvcells, string(v)); push!(csvci, h === nothing ? "" : string(h))
                 end
             end
             println(tex, "\\quad $texname & ", join(texcells, " & "), " \\\\")
             println(md, "| $mdname | ", join(mdcells, " | "), " |")
             println(csv, name, ",", key, ",", join(csvcells, ","))
+            any(!isempty, csvci) && println(csv, name, ",", key, "_ci95_halfwidth,", join(csvci, ","))
         end
     end
     println(tex, "\\bottomrule")

@@ -10,6 +10,7 @@ using Statistics: median
 const REPO_ROOT = dirname(@__DIR__)
 include(joinpath(REPO_ROOT, "src", "ChannelModel.jl"))
 include(joinpath(REPO_ROOT, "src", "Measure.jl"))
+include(joinpath(@__DIR__, "stats.jl"))
 using .ChannelModel
 using .Measure
 
@@ -19,11 +20,12 @@ usage: julia --project bench/driver_<backend>.jl --config NAME --nsteps N [optio
   --config NAME          entry of bench/configs.toml
   --nsteps N             timesteps in the differentiated window
   --out DIR              results root (default: results); writes DIR/NAME/N<nnnn>/result.json
-  --warmup W             unmeasured-for-perf warmup calls (default 1; the first call
-                         is always the reference for objective/gradients)
-  --max-repeats R        upper bound on measured calls (default 3)
-  --repeat-budget S      measured calls are reduced so that R × (warmup time) ≤ S
-                         seconds, with at least one measured call (default 900)
+  --warmup W             warmup calls, not used for statistics (default 1; the first
+                         call is always the reference for objective/gradients and
+                         includes compilation/JIT)
+  --repeats R            measured calls used for the statistics (default 12)
+  --repeat-budget S      optional cap for smoke runs: reduce measured calls so that
+                         R × (warmup time) ≤ S seconds, at least 2 (default: no cap)
   --seed K               RNG seed for the initial-condition noise (default 1234)
   --save-gradients       also write gradient fields of the reference call to JLD2
   --configs-file PATH    alternative configs TOML (default bench/configs.toml)
@@ -31,7 +33,7 @@ usage: julia --project bench/driver_<backend>.jl --config NAME --nsteps N [optio
 
 function parse_driver_args(args)
     opts = Dict{String, Any}(
-        "out" => "results", "warmup" => 1, "max-repeats" => 3, "repeat-budget" => 900.0,
+        "out" => "results", "warmup" => 1, "repeats" => 12, "repeat-budget" => Inf,
         "seed" => 1234, "save-gradients" => false,
         "configs-file" => joinpath(REPO_ROOT, "bench", "configs.toml"))
     i = 1
@@ -49,11 +51,12 @@ function parse_driver_args(args)
         i += 1
     end
     haskey(opts, "config") && haskey(opts, "nsteps") || error("--config and --nsteps are required\n\n$DRIVER_USAGE")
-    for k in ("nsteps", "warmup", "max-repeats", "seed")
+    for k in ("nsteps", "warmup", "repeats", "seed")
         opts[k] isa AbstractString && (opts[k] = parse(Int, opts[k]))
     end
     opts["repeat-budget"] isa AbstractString && (opts["repeat-budget"] = parse(Float64, opts["repeat-budget"]))
     opts["warmup"] >= 1 || error("--warmup must be ≥ 1 (the first call is the reference call)")
+    opts["repeats"] >= 2 || error("--repeats must be ≥ 2 (needed for a confidence interval)")
     return opts
 end
 
@@ -110,20 +113,24 @@ Common measurement protocol for one (config, N) case:
 
 1. `build()` a fresh problem + zeroed shadows; call 1 (reference/warmup) runs from
    rest. Its objective and gradients are recorded for cross-configuration checks.
-   For the Enzyme driver this call also includes JIT compilation.
+   It includes Reactant's first-execution overhead or the Enzyme driver's JIT, and
+   is excluded from the statistics.
 2. Further warmup calls (if `--warmup > 1`), each on a freshly built problem.
-3. Measured calls: `R = clamp(floor(repeat_budget / t_warmup), 1, max_repeats)`,
-   each on a freshly built problem with fresh shadows (built outside the timed
-   window), with perf counters enabled only inside the call.
+3. `--repeats` measured calls (default 12), each on a freshly built problem with
+   fresh shadows (built outside the timed window), with perf counters enabled only
+   inside the call. Runtime and memory are reported as mean ± 95% Student-t CI.
+   An optional `--repeat-budget` reduces the count for smoke runs only.
 
-Every call therefore computes exactly the same thing; the per-call objectives are
-recorded and checked for consistency.
+Every call computes exactly the same thing; the per-call objectives are recorded and
+checked for consistency. Progress is written after every call to `progress.json`, so
+a case cut off by a timeout still leaves its completed calls on disk.
 """
 function run_protocol(; build, call, objective, interior, opts, cfg, driver, extra = Dict())
     dir = case_dir(opts)
     mkpath(dir)
 
     calls = Dict{String, Any}[]
+    progress() = write_json_atomic(joinpath(dir, "progress.json"), JSON.json(calls; pretty = true))
 
     # 1. Reference call (warmup, no perf)
     @info "Reference call (warmup 1/$(opts["warmup"]))"
@@ -131,6 +138,7 @@ function run_protocol(; build, call, objective, interior, opts, cfg, driver, ext
     y, st = measured_call(() -> call(pr, sh); perf = false)
     J_ref = objective(y)
     push!(calls, merge(strdict(st), Dict("kind" => "warmup", "objective" => J_ref)))
+    progress()
     grads = gradient_arrays(sh, interior)
     grad_summary = Dict(k => field_summary(v) for (k, v) in grads)
     if opts["save-gradients"]
@@ -147,12 +155,16 @@ function run_protocol(; build, call, objective, interior, opts, cfg, driver, ext
         pr, sh = build()
         y, st = measured_call(() -> call(pr, sh); perf = false)
         push!(calls, merge(strdict(st), Dict("kind" => "warmup", "objective" => objective(y))))
+        progress()
         t_warm = st.wall_s
         pr = sh = y = nothing
     end
 
     # 3. Measured calls
-    nrep = clamp(floor(Int, opts["repeat-budget"] / max(t_warm, 1e-9)), 1, opts["max-repeats"])
+    nrep = opts["repeats"]
+    if isfinite(opts["repeat-budget"])
+        nrep = clamp(floor(Int, opts["repeat-budget"] / max(t_warm, 1e-9)), 2, nrep)
+    end
     @info "Measuring $nrep call(s) (last warmup took $(round(t_warm, digits=2)) s)"
     measured = Dict{String, Any}[]
     for r in 1:nrep
@@ -160,6 +172,7 @@ function run_protocol(; build, call, objective, interior, opts, cfg, driver, ext
         y, st = measured_call(() -> call(pr, sh); perf = true)
         rec = merge(strdict(st), Dict("kind" => "measured", "objective" => objective(y)))
         push!(calls, rec); push!(measured, rec)
+        progress()
         pr = sh = y = nothing
     end
 
@@ -168,20 +181,26 @@ function run_protocol(; build, call, objective, interior, opts, cfg, driver, ext
     consistent = finite && all(o -> isapprox(o, J_ref; rtol = 1e-12, atol = 0), objectives)
     consistent || @warn "Per-call objectives differ" objectives
 
-    walls = [m["wall_s"] for m in measured]
+    runtime = sample_stats([m["wall_s"] for m in measured])
+    peak    = sample_stats([Float64(m["peak_rss_bytes"]) for m in measured])
+    delta   = sample_stats([Float64(m["delta_rss_bytes"]) for m in measured])
     result = Dict{String, Any}(
         "config"       => opts["config"],
         "config_spec"  => cfg,
         "driver"       => driver,
         "nsteps"       => opts["nsteps"],
         "seed"         => opts["seed"],
-        "protocol"     => Dict("warmup" => opts["warmup"], "max_repeats" => opts["max-repeats"],
-                               "repeat_budget_s" => opts["repeat-budget"], "n_measured" => nrep),
-        "runtime_s"        => median(walls),
-        "runtime_min_s"    => minimum(walls),
-        "runtime_max_s"    => maximum(walls),
-        "peak_rss_bytes"   => maximum(m["peak_rss_bytes"] for m in measured),
-        "delta_rss_bytes"  => maximum(m["delta_rss_bytes"] for m in measured),
+        "protocol"     => Dict("warmup" => opts["warmup"], "repeats" => opts["repeats"],
+                               "repeat_budget_s" => isfinite(opts["repeat-budget"]) ? opts["repeat-budget"] : nothing,
+                               "n_measured" => nrep, "statistic" => "mean ± 95% Student-t CI"),
+        # Headline numbers: means over the measured calls (full stats below)
+        "runtime_s"        => runtime["mean"],
+        "runtime_ci95_halfwidth_s" => runtime["ci95_halfwidth"],
+        "peak_rss_bytes"   => peak["mean"],
+        "delta_rss_bytes"  => delta["mean"],
+        "runtime_stats"    => runtime,
+        "peak_rss_stats"   => peak,
+        "delta_rss_stats"  => delta,
         "memory_method"    => measured[1]["memory_method"],
         "objective"        => J_ref,
         "objectives_consistent" => consistent,
@@ -193,9 +212,9 @@ function run_protocol(; build, call, objective, interior, opts, cfg, driver, ext
 
     path = joinpath(dir, "result.json")
     write_json_atomic(path, JSON.json(result; pretty = true))
-    @info @sprintf("[%s N=%d] runtime %.3f s, peak RSS %.3f GiB, objective %.12e → %s",
-                   opts["config"], opts["nsteps"], result["runtime_s"],
-                   result["peak_rss_bytes"] / 2^30, J_ref, path)
+    @info @sprintf("[%s N=%d] runtime %.3f ± %.3f s (95%% CI, n=%d), peak RSS %.3f GiB, objective %.12e → %s",
+                   opts["config"], opts["nsteps"], runtime["mean"], runtime["ci95_halfwidth"], nrep,
+                   peak["mean"] / 2^30, J_ref, path)
 
     finite || (@error "Non-finite objective"; exit(3))
     return result
