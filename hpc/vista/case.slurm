@@ -5,6 +5,9 @@
 #
 # Flow:
 #   * skip if $WORK already holds an ok result for this case (FORCE=1 to rerun);
+#   * PERF=off (submit.sh --perf off) runs without perf: no FLOPs, but a process
+#     killed by the kernel (e.g. OOM killer) is then seen as SIGKILL and classified
+#     "m". Under perf the kill is hidden: perf exits 0 and the case looks like "e".
 #   * move any earlier non-ok attempt aside to $WORK_ROOT/_superseded/ (kept, not deleted);
 #   * run the orchestrator (1 warmup + 12 measured calls, numactl-pinned, perf-counted)
 #     on $SCRATCH with a timeout below the SLURM walltime;
@@ -44,7 +47,7 @@ start=$(date -u +%FT%TZ)
 echo "[$start] $CASE on $(hostname), job $SLURM_JOB_ID, orchestrator timeout ${TIMEOUT_S}s"
 apptainer_exec julia /opt/channelanigans/bench/run_cases.jl \
     --configs "$CONFIG" --nsteps "$NSTEPS" --out "/results/$SWEEP" \
-    --timeout "$TIMEOUT_S" --perf on --numactl on --core "$CORE" \
+    --timeout "$TIMEOUT_S" --perf "${PERF:-on}" --numactl on --core "$CORE" \
     -- $DRIVER_ARGS
 rc=$?
 end=$(date -u +%FT%TZ)
@@ -67,6 +70,7 @@ cat > "$DST/job_info.json" <<EOF
   "orchestrator_exit_code": $rc,
   "core": $CORE,
   "driver_args": "$DRIVER_ARGS",
+  "perf_mode": "${PERF:-on}",
   "sif": "$SIF",
   "image_ref": "$IMAGE_REF",
   "image_digest": "$IMAGE_DIGEST",

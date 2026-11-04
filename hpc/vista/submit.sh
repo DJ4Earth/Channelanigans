@@ -13,6 +13,8 @@
 #   --walltimes FILE   per-case limits, lines "config<TAB>N<TAB>HH:MM:SS" (written by
 #                      plan.jl); cases not listed there are skipped
 #   --force            rerun cases that already have an ok result in $WORK
+#   --perf on|off      FLOP counting (default on). Use off only to diagnose a case that
+#                      perf hides a kill for (see case.slurm); off-cases have no FLOPs
 #   --report MODE      run `report.sh MODE` (status | final) as a short batch job
 #                      instead of in an idev session; output in the log directory
 #   --dry-run          print the sbatch commands only
@@ -25,7 +27,7 @@
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/env.sh"
 
-configs=table; nsteps=""; walltime=""; walltimes=""; force=0; dry=0; gate=0; report=""
+configs=table; nsteps=""; walltime=""; walltimes=""; force=0; dry=0; gate=0; report=""; perf=on
 while [[ $# -gt 0 ]]; do
     case $1 in
         --gate) gate=1 ;;
@@ -35,8 +37,10 @@ while [[ $# -gt 0 ]]; do
         --walltime) walltime=$2; shift ;;
         --walltimes) walltimes=$2; shift ;;
         --force) force=1 ;;
+        --perf) perf=$2; shift
+                [[ $perf == on || $perf == off ]] || { echo "--perf takes on or off" >&2; exit 2; } ;;
         --dry-run) dry=1 ;;
-        -h|--help) sed -n '2,25p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,27p' "$0"; exit 0 ;;
         *) echo "unknown option $1" >&2; exit 2 ;;
     esac
     shift
@@ -124,7 +128,7 @@ for c in "${cases[@]}"; do
     if (( wt_s > max_s )); then wt_s=$max_s; wt=$(printf '%02d:00:00' "$MAX_WALLTIME_H"); fi
     timeout_s=$(( wt_s - TIMEOUT_MARGIN_S ))
     (( timeout_s > 600 )) || { echo "walltime $wt too short for $name" >&2; exit 2; }
-    submit "$name" "$wt" case.slurm "CONFIG=$cfg,NSTEPS=$N,TIMEOUT_S=$timeout_s,FORCE=$force"
+    submit "$name" "$wt" case.slurm "CONFIG=$cfg,NSTEPS=$N,TIMEOUT_S=$timeout_s,FORCE=$force,PERF=$perf"
     nsub=$((nsub + 1))
 done
 echo "submitted $nsub job(s); logs in $LOG_DIR"
