@@ -1,0 +1,27 @@
+{
+  "command": "`numactl -C 0 perf stat -x, -I 100 -o /results/table/reactant_after_enzyme/N0128/perf.csv --delay=-1 -e r80C0,r80C1 --control fifo:/tmp/jl_Cv65GpajOD.perf_ctl,/tmp/jl_kJEvgbUNu1.perf_ack -- /usr/local/julia/bin/julia -C native -J/usr/local/julia/lib/julia/sys.so -g1 -O0 --project=/opt/channelanigans /opt/channelanigans/bench/driver_reactant.jl --config reactant_after_enzyme --nsteps 128 --out /results/table --configs-file /opt/channelanigans/bench/configs.toml --save-gradients`",
+  "config": "reactant_after_enzyme",
+  "elapsed_s": 5196.043473958969,
+  "exitcode": 0,
+  "finished_at": "2026-11-04T05:42:10.317",
+  "julia_flags": "-O0",
+  "nsteps": 128,
+  "numactl": true,
+  "perf": {
+    "attribution": "ok",
+    "events": "r80C0,r80C1",
+    "interval_ms": 100,
+    "n_measured": 12,
+    "n_windows": 12,
+    "totals_all_windows": {
+      "r80C0": 32,
+      "r80C1": 15671482575472
+    }
+  },
+  "reason": "",
+  "status": "ok",
+  "termsignal": 0,
+  "threads": 1,
+  "timeout_s": 7200.0,
+  "xla_flags": "--xla_cpu_multi_thread_eigen=false --xla_backend_extra_options=xla_cpu_use_multi_output_fusion"
+}

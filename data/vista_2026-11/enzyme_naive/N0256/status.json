@@ -1,0 +1,21 @@
+{
+  "command": "`numactl -C 0 perf stat -x, -I 100 -o /results/table/enzyme_naive/N0256/perf.csv --delay=-1 -e r80C0,r80C1 --control fifo:/tmp/jl_4pKpUZSb8j.perf_ctl,/tmp/jl_gzmdIPU9mD.perf_ack -- /usr/local/julia/bin/julia -C native -J/usr/local/julia/lib/julia/sys.so -g1 -O0 --project=/opt/channelanigans /opt/channelanigans/bench/driver_enzyme.jl --config enzyme_naive --nsteps 256 --out /results/table --configs-file /opt/channelanigans/bench/configs.toml --save-gradients`",
+  "config": "enzyme_naive",
+  "elapsed_s": 357.6602158546448,
+  "exitcode": 0,
+  "finished_at": "2026-11-04T04:31:50.315",
+  "julia_flags": "-O0",
+  "nsteps": 256,
+  "numactl": true,
+  "perf": {
+    "events": "r80C0,r80C1",
+    "interval_ms": 100,
+    "totals_all_windows": {}
+  },
+  "reason": "driver exited cleanly but wrote no result.json",
+  "status": "e",
+  "termsignal": 0,
+  "threads": 1,
+  "timeout_s": 7200.0,
+  "xla_flags": "--xla_cpu_multi_thread_eigen=false --xla_backend_extra_options=xla_cpu_use_multi_output_fusion"
+}

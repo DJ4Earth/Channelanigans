@@ -1,0 +1,21 @@
+{
+  "slurm_job_id": "1120195",
+  "slurm_job_name": "ch-reactant_binomial_10-N8",
+  "partition": "gg",
+  "account": "Transfer-of-ECCO-glo",
+  "node": "i617-124.vista.tacc.utexas.edu",
+  "start_utc": "2026-11-04T03:05:01Z",
+  "end_utc": "2026-11-04T03:14:48Z",
+  "walltime_limit": "4:00:00",
+  "orchestrator_timeout_s": 12600,
+  "orchestrator_exit_code": 0,
+  "core": 0,
+  "driver_args": "--save-gradients",
+  "sif": "/work/08955/jlk3675/vista/channelanigans-2026-11-cpu.sif",
+  "image_ref": "channelanigans:2026-11-cpu",
+  "image_digest": "sha256:b9c94c1fbac86e8b7cdc709540fd97850f2069a61bbf480f5709b31b43676df0",
+  "apptainer_version": "apptainer version 1.4.1-1.el9",
+  "kernel": "5.14.0-611.16.1.el9_7.aarch64+64k",
+  "perf_event_paranoid": "0",
+  "hpc_scripts_commit": "03057f121c0b9fa55423d58f7a8fcba5c67ce63e"
+}

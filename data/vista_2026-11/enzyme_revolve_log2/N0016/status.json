@@ -1,0 +1,27 @@
+{
+  "command": "`numactl -C 0 perf stat -x, -I 100 -o /results/table/enzyme_revolve_log2/N0016/perf.csv --delay=-1 -e r80C0,r80C1 --control fifo:/tmp/jl_fC5UPwR8fg.perf_ctl,/tmp/jl_D2nCbGxs9Y.perf_ack -- /usr/local/julia/bin/julia -C native -J/usr/local/julia/lib/julia/sys.so -g1 -O0 --project=/opt/channelanigans /opt/channelanigans/bench/driver_enzyme.jl --config enzyme_revolve_log2 --nsteps 16 --out /results/table --configs-file /opt/channelanigans/bench/configs.toml --save-gradients`",
+  "config": "enzyme_revolve_log2",
+  "elapsed_s": 1587.56623005867,
+  "exitcode": 0,
+  "finished_at": "2026-11-03T22:26:01.298",
+  "julia_flags": "-O0",
+  "nsteps": 16,
+  "numactl": true,
+  "perf": {
+    "attribution": "ok",
+    "events": "r80C0,r80C1",
+    "interval_ms": 100,
+    "n_measured": 12,
+    "n_windows": 12,
+    "totals_all_windows": {
+      "r80C0": 841158802,
+      "r80C1": 1430908248337
+    }
+  },
+  "reason": "",
+  "status": "ok",
+  "termsignal": 0,
+  "threads": 1,
+  "timeout_s": 3600.0,
+  "xla_flags": "--xla_cpu_multi_thread_eigen=false --xla_backend_extra_options=xla_cpu_use_multi_output_fusion"
+}

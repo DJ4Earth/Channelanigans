@@ -1,0 +1,552 @@
+{
+  "calls": [
+    {
+      "base_rss_bytes": 1882783744,
+      "delta_rss_bytes": 38699859968,
+      "kind": "warmup",
+      "memory_method": "linux_vmhwm",
+      "objective": 0.6776874518369783,
+      "peak_rss_bytes": 40582643712,
+      "perf_counted": false,
+      "wall_s": 244.553824112,
+      "window_end_unix": 1.793765055361577e9,
+      "window_start_unix": 1.793764810807752e9
+    },
+    {
+      "base_rss_bytes": 4403822592,
+      "delta_rss_bytes": 36236558336,
+      "flops": 152169438257,
+      "kind": "measured",
+      "memory_method": "linux_vmhwm",
+      "objective": 0.6776874518369783,
+      "peak_rss_bytes": 40640380928,
+      "perf_counted": true,
+      "perf_counts": {
+        "r80C0": 138415096,
+        "r80C1": 152031023161
+      },
+      "wall_s": 48.323770627,
+      "window_end_unix": 1.793765108621254e9,
+      "window_start_unix": 1.793765060297483e9
+    },
+    {
+      "base_rss_bytes": 4409196544,
+      "delta_rss_bytes": 36261462016,
+      "flops": 152165926849,
+      "kind": "measured",
+      "memory_method": "linux_vmhwm",
+      "objective": 0.6776874518369783,
+      "peak_rss_bytes": 40670658560,
+      "perf_counted": true,
+      "perf_counts": {
+        "r80C0": 138583474,
+        "r80C1": 152027343375
+      },
+      "wall_s": 48.414936001,
+      "window_end_unix": 1.793765160228859e9,
+      "window_start_unix": 1.793765111813922e9
+    },
+    {
+      "base_rss_bytes": 4401201152,
+      "delta_rss_bytes": 36273455104,
+      "flops": 152171785830,
+      "kind": "measured",
+      "memory_method": "linux_vmhwm",
+      "objective": 0.6776874518369783,
+      "peak_rss_bytes": 40674656256,
+      "perf_counted": true,
+      "perf_counts": {
+        "r80C0": 138153148,
+        "r80C1": 152033632682
+      },
+      "wall_s": 48.102778929,
+      "window_end_unix": 1.793765211462333e9,
+      "window_start_unix": 1.793765163359553e9
+    },
+    {
+      "base_rss_bytes": 4396810240,
+      "delta_rss_bytes": 36279812096,
+      "flops": 152186401277,
+      "kind": "measured",
+      "memory_method": "linux_vmhwm",
+      "objective": 0.6776874518369783,
+      "peak_rss_bytes": 40676622336,
+      "perf_counted": true,
+      "perf_counts": {
+        "r80C0": 138837574,
+        "r80C1": 152047563703
+      },
+      "wall_s": 48.335749013,
+      "window_end_unix": 1.793765263408938e9,
+      "window_start_unix": 1.793765215073188e9
+    },
+    {
+      "base_rss_bytes": 4407164928,
+      "delta_rss_bytes": 36276142080,
+      "flops": 152239476222,
+      "kind": "measured",
+      "memory_method": "linux_vmhwm",
+      "objective": 0.6776874518369783,
+      "peak_rss_bytes": 40683307008,
+      "perf_counted": true,
+      "perf_counts": {
+        "r80C0": 138107398,
+        "r80C1": 152101368824
+      },
+      "wall_s": 48.211751876,
+      "window_end_unix": 1.793765315211181e9,
+      "window_start_unix": 1.793765266999428e9
+    },
+    {
+      "base_rss_bytes": 4400087040,
+      "delta_rss_bytes": 36293902336,
+      "flops": 152188319507,
+      "kind": "measured",
+      "memory_method": "linux_vmhwm",
+      "objective": 0.6776874518369783,
+      "peak_rss_bytes": 40693989376,
+      "perf_counted": true,
+      "perf_counts": {
+        "r80C0": 138764440,
+        "r80C1": 152049555067
+      },
+      "wall_s": 48.165924706,
+      "window_end_unix": 1.793765366977321e9,
+      "window_start_unix": 1.793765318811395e9
+    },
+    {
+      "base_rss_bytes": 4397531136,
+      "delta_rss_bytes": 36320772096,
+      "flops": 152198272750,
+      "kind": "measured",
+      "memory_method": "linux_vmhwm",
+      "objective": 0.6776874518369783,
+      "peak_rss_bytes": 40718303232,
+      "perf_counted": true,
+      "perf_counts": {
+        "r80C0": 138152128,
+        "r80C1": 152060120622
+      },
+      "wall_s": 48.549194453,
+      "window_end_unix": 1.793765419122043e9,
+      "window_start_unix": 1.793765370572847e9
+    },
+    {
+      "base_rss_bytes": 4397989888,
+      "delta_rss_bytes": 36307730432,
+      "flops": 152160407615,
+      "kind": "measured",
+      "memory_method": "linux_vmhwm",
+      "objective": 0.6776874518369783,
+      "peak_rss_bytes": 40705720320,
+      "perf_counted": true,
+      "perf_counts": {
+        "r80C0": 138316314,
+        "r80C1": 152022091301
+      },
+      "wall_s": 48.213967399,
+      "window_end_unix": 1.793765470492116e9,
+      "window_start_unix": 1.793765422278147e9
+    },
+    {
+      "base_rss_bytes": 4402118656,
+      "delta_rss_bytes": 36317036544,
+      "flops": 152182936925,
+      "kind": "measured",
+      "memory_method": "linux_vmhwm",
+      "objective": 0.6776874518369783,
+      "peak_rss_bytes": 40719155200,
+      "perf_counted": true,
+      "perf_counts": {
+        "r80C0": 138842162,
+        "r80C1": 152044094763
+      },
+      "wall_s": 48.467738168,
+      "window_end_unix": 1.793765522551814e9,
+      "window_start_unix": 1.793765474084075e9
+    },
+    {
+      "base_rss_bytes": 4402642944,
+      "delta_rss_bytes": 36305698816,
+      "flops": 152160935745,
+      "kind": "measured",
+      "memory_method": "linux_vmhwm",
+      "objective": 0.6776874518369783,
+      "peak_rss_bytes": 40708341760,
+      "perf_counted": true,
+      "perf_counts": {
+        "r80C0": 138201758,
+        "r80C1": 152022733987
+      },
+      "wall_s": 48.009276893,
+      "window_end_unix": 1.79376557371762e9,
+      "window_start_unix": 1.793765525708341e9
+    },
+    {
+      "base_rss_bytes": 4395106304,
+      "delta_rss_bytes": 36305698816,
+      "flops": 152189940992,
+      "kind": "measured",
+      "memory_method": "linux_vmhwm",
+      "objective": 0.6776874518369783,
+      "peak_rss_bytes": 40700805120,
+      "perf_counted": true,
+      "perf_counts": {
+        "r80C0": 137899060,
+        "r80C1": 152052041932
+      },
+      "wall_s": 48.398635611,
+      "window_end_unix": 1.793765625632931e9,
+      "window_start_unix": 1.793765577234294e9
+    },
+    {
+      "base_rss_bytes": 4395827200,
+      "delta_rss_bytes": 36299472896,
+      "flops": 152176487766,
+      "kind": "measured",
+      "memory_method": "linux_vmhwm",
+      "objective": 0.6776874518369783,
+      "peak_rss_bytes": 40695300096,
+      "perf_counted": true,
+      "perf_counts": {
+        "r80C0": 138054684,
+        "r80C1": 152038433082
+      },
+      "wall_s": 48.3665405,
+      "window_end_unix": 1.793765677148287e9,
+      "window_start_unix": 1.793765628781746e9
+    }
+  ],
+  "config": "enzyme_naive",
+  "config_spec": {
+    "checkpointing": "none",
+    "driver": "enzyme",
+    "label": "AD only, no prior optimization"
+  },
+  "delta_rss_bytes": 3.6289811797333336e10,
+  "delta_rss_stats": {
+    "ci95": [
+      3.6273979858936455e10,
+      3.630564373573022e10
+    ],
+    "ci95_halfwidth": 1.5831938396883264e7,
+    "max": 3.6320772096e10,
+    "mean": 3.6289811797333336e10,
+    "median": 3.6296687616e10,
+    "min": 3.6236558336e10,
+    "n": 12,
+    "std": 2.4917511754386526e7,
+    "values": [
+      3.6236558336e10,
+      3.6261462016e10,
+      3.6273455104e10,
+      3.6279812096e10,
+      3.627614208e10,
+      3.6293902336e10,
+      3.6320772096e10,
+      3.6307730432e10,
+      3.6317036544e10,
+      3.6305698816e10,
+      3.6305698816e10,
+      3.6299472896e10
+    ]
+  },
+  "driver": "enzyme",
+  "environment": {
+    "arch": "aarch64",
+    "cpu": "unknown",
+    "env": {
+      "BENCH_JULIA_FLAGS": "-O0",
+      "JULIA_NUM_THREADS": "1",
+      "OMP_NUM_THREADS": null,
+      "PERF_CTL_FIFO": "/tmp/jl_Ziz836N0fQ.perf_ctl",
+      "SLURM_JOB_ID": "1120341",
+      "SLURM_JOB_PARTITION": "gg",
+      "XLA_FLAGS": "--xla_cpu_multi_thread_eigen=false --xla_backend_extra_options=xla_cpu_use_multi_output_fusion"
+    },
+    "git_commit": "8fcc665421191cb84c1d203829c0e17a89865834",
+    "hostname": "i614-003.vista.tacc.utexas.edu",
+    "julia_cmd": "`/usr/local/julia/bin/julia -C native -J/usr/local/julia/lib/julia/sys.so -O0 -g1`",
+    "julia_opt_level": 0,
+    "julia_version": "1.12.7",
+    "ncores": 144,
+    "os": "Linux",
+    "packages": {
+      "CUDA": {
+        "git_revision": "",
+        "tree_hash": "6b7605ef4d1bfc851f6743c278eb01842b3ebb99",
+        "version": "6.2.2"
+      },
+      "Checkpointing": {
+        "git_revision": "",
+        "tree_hash": "72ff0fc0e1e359a8689015d0715b70291c4118c5",
+        "version": "0.13.0"
+      },
+      "Enzyme": {
+        "git_revision": "",
+        "tree_hash": "74e912b796cec5fab7cd1eb982e460499d51207f",
+        "version": "0.13.216"
+      },
+      "EnzymeCore": {
+        "git_revision": "",
+        "tree_hash": "04c4269956f90d8f5c9acc73b774c5293481f4d7",
+        "version": "0.8.26"
+      },
+      "Enzyme_jll": {
+        "git_revision": "",
+        "tree_hash": "1044bbf0dd0d642940c05f0895f651878f0ffb9e",
+        "version": "0.0.303+1"
+      },
+      "GPUArraysCore": {
+        "git_revision": "",
+        "tree_hash": "0b2b3e8b8fb7c1f5ddbf498be2eb2b3b37c9c0ed",
+        "version": "0.2.1"
+      },
+      "InteractiveUtils": {
+        "git_revision": "",
+        "tree_hash": "",
+        "version": "1.11.0"
+      },
+      "JLD2": {
+        "git_revision": "",
+        "tree_hash": "9ce2e7c49ae4a7035b7d60db3a553b1f6c16875d",
+        "version": "0.6.7"
+      },
+      "JSON": {
+        "git_revision": "",
+        "tree_hash": "06d90f699285d055e34f0b014636a75a17ff2252",
+        "version": "1.13.4"
+      },
+      "Oceananigans": {
+        "git_revision": "",
+        "tree_hash": "39191502f01f3fc58abd09e7f1f97315a3be740e",
+        "version": "0.116.1"
+      },
+      "Pkg": {
+        "git_revision": "",
+        "tree_hash": "",
+        "version": "1.12.1"
+      },
+      "Printf": {
+        "git_revision": "",
+        "tree_hash": "",
+        "version": "1.11.0"
+      },
+      "Random": {
+        "git_revision": "",
+        "tree_hash": "",
+        "version": "1.11.0"
+      },
+      "Reactant": {
+        "git_revision": "",
+        "tree_hash": "06d298413e4399ee20b868dc7261939fe6dfaf66",
+        "version": "0.2.304"
+      },
+      "ReactantCore": {
+        "git_revision": "",
+        "tree_hash": "1fe4e616752a0c4818ae88a504fc59b0fb016659",
+        "version": "0.1.26"
+      },
+      "Reactant_jll": {
+        "git_revision": "",
+        "tree_hash": "e22463ed2ed458de83c9f1b029bff6efc4233d8e",
+        "version": "0.0.438+0"
+      },
+      "Statistics": {
+        "git_revision": "",
+        "tree_hash": "e2b53ce13a53367e96601081e33d34746b571bad",
+        "version": "1.11.5"
+      },
+      "TOML": {
+        "git_revision": "",
+        "tree_hash": "",
+        "version": "1.0.3"
+      }
+    },
+    "perf_active": true,
+    "threads": 1,
+    "total_memory_bytes": 255094751232,
+    "versioninfo": "Julia Version 1.12.7\nCommit 6d172b025e4 (2026-08-15 08:05 UTC)\nBuild Info:\n  Official https://julialang.org release\nPlatform Info:\n  OS: Linux (aarch64-linux-gnu)\n  CPU: 144 × unknown\n  WORD_SIZE: 64\n  LLVM: libLLVM-18.1.7 (ORCJIT, neoverse-v2)\n  GC: Built with stock GC\nThreads: 1 default, 0 interactive, 1 GC (on 144 virtual cores)\nEnvironment:\n  JULIA_PROJECT = /opt/channelanigans\n  JULIA_PKG_OFFLINE = true\n  JULIA_PATH = /usr/local/julia\n  JULIA_GPG = 64B779A570972FFF7BFC2B54EAD471E1A1F2C10A\n  LD_LIBRARY_PATH = /.singularity.d/libs\n  JULIA_VERSION = 1.12.7\n  JULIA_PKG_PRECOMPILE_AUTO = 0\n  JULIA_DEPOT_PATH = /tmp/channelanigans_depot_1120341:/opt/julia_depot\n  JULIA_NUM_THREADS = 1\n"
+  },
+  "enzyme_options": {
+    "checkpointing": "none",
+    "looseTypeAnalysis": true,
+    "snaps": null,
+    "strictAliasing": false
+  },
+  "flops_per_call": 1.5218252747791666e11,
+  "flops_stats": {
+    "ci95": [
+      1.5216878088132242e11,
+      1.521962740745109e11
+    ],
+    "ci95_halfwidth": 1.374659659422788e7,
+    "max": 1.52239476222e11,
+    "mean": 1.5218252747791666e11,
+    "median": 1.521797123455e11,
+    "min": 1.52160407615e11,
+    "n": 12,
+    "std": 2.1635441828583352e7,
+    "values": [
+      1.52169438257e11,
+      1.52165926849e11,
+      1.5217178583e11,
+      1.52186401277e11,
+      1.52239476222e11,
+      1.52188319507e11,
+      1.5219827275e11,
+      1.52160407615e11,
+      1.52182936925e11,
+      1.52160935745e11,
+      1.52189940992e11,
+      1.52176487766e11
+    ]
+  },
+  "gradients": {
+    "dDz": {
+      "l2": 0.04578720872829328,
+      "maxabs": 0.04570044436428437,
+      "nonfinite": 0,
+      "size": [
+        1,
+        32
+      ],
+      "sum": 0.051186710445735875
+    },
+    "dS": {
+      "l2": 0.5610489922661024,
+      "maxabs": 0.007530535576555232,
+      "nonfinite": 0,
+      "size": [
+        80,
+        160,
+        32
+      ],
+      "sum": -9.67432343786469e-16
+    },
+    "dT": {
+      "l2": 0.12012202785011399,
+      "maxabs": 0.0016123069760078034,
+      "nonfinite": 0,
+      "size": [
+        80,
+        160,
+        32
+      ],
+      "sum": 1.5053085183646644e-15
+    },
+    "dT_flux": {
+      "l2": 1.0905786604674748,
+      "maxabs": 0.025270100884952205,
+      "nonfinite": 0,
+      "size": [
+        80,
+        160,
+        1
+      ],
+      "sum": 0.0075937501898557065
+    },
+    "du_wind_stress": {
+      "l2": 52.80482225621064,
+      "maxabs": 2.749288420527926,
+      "nonfinite": 0,
+      "size": [
+        80,
+        160,
+        1
+      ],
+      "sum": -4290.77877693413
+    },
+    "dv_wind_stress": {
+      "l2": 28.662756800144027,
+      "maxabs": 2.5101271770060656,
+      "nonfinite": 0,
+      "size": [
+        80,
+        161,
+        1
+      ],
+      "sum": 781.743134954322
+    }
+  },
+  "memory_method": "linux_vmhwm",
+  "nsteps": 32,
+  "objective": 0.6776874518369783,
+  "objectives_consistent": true,
+  "peak_rss_bytes": 4.0690603349333336e10,
+  "peak_rss_stats": {
+    "ci95": [
+      4.067615725158908e10,
+      4.070504944707759e10
+    ],
+    "ci95_halfwidth": 1.4446097744254788e7,
+    "max": 4.07191552e10,
+    "mean": 4.0690603349333336e10,
+    "median": 4.0694644736e10,
+    "min": 4.0640380928e10,
+    "n": 12,
+    "std": 2.2736370071926795e7,
+    "values": [
+      4.0640380928e10,
+      4.067065856e10,
+      4.0674656256e10,
+      4.0676622336e10,
+      4.0683307008e10,
+      4.0693989376e10,
+      4.0718303232e10,
+      4.070572032e10,
+      4.07191552e10,
+      4.070834176e10,
+      4.070080512e10,
+      4.0695300096e10
+    ]
+  },
+  "perf": {
+    "attribution": "ok",
+    "events": "r80C0,r80C1",
+    "interval_ms": 100,
+    "n_measured": 12,
+    "n_windows": 12,
+    "totals_all_windows": {
+      "r80C0": 1660327236,
+      "r80C1": 1824530002499
+    }
+  },
+  "protocol": {
+    "n_measured": 12,
+    "repeat_budget_s": null,
+    "repeats": 12,
+    "statistic": "mean ± 95% Student-t CI",
+    "warmup": 1
+  },
+  "runtime_ci95_halfwidth_s": 0.10062459625484184,
+  "runtime_s": 48.296688681333336,
+  "runtime_stats": {
+    "ci95": [
+      48.1960640850785,
+      48.397313277588175
+    ],
+    "ci95_halfwidth": 0.10062459625484184,
+    "max": 48.549194453,
+    "mean": 48.296688681333336,
+    "median": 48.32975982,
+    "min": 48.009276893,
+    "n": 12,
+    "std": 0.15837066170330852,
+    "values": [
+      48.323770627,
+      48.414936001,
+      48.102778929,
+      48.335749013,
+      48.211751876,
+      48.165924706,
+      48.549194453,
+      48.213967399,
+      48.467738168,
+      48.009276893,
+      48.398635611,
+      48.3665405
+    ]
+  },
+  "seed": 1234
+}

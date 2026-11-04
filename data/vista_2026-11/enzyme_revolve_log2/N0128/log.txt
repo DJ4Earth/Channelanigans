@@ -1,0 +1,52 @@
+Events disabled
+warning: binary operator is integer and assumed constant:   %63 = add i64 %62, %.size.0.copyload, !dbg !307
+warning: binary operator is integer and assumed constant:   %62 = add nuw nsw i64 %memoryref_offsetidx40, 1, !dbg !304
+warning: binary operator is integer and constant:   %memoryref_offsetidx40 = lshr exact i64 %memoryref_offset, 3, !dbg !304
+warning: binary operator is integer and assumed constant:   %memoryref_offset = sub i64 %60, %61, !dbg !304
+warning: binary operator is integer and assumed constant:   %59 = add i64 %.size.0.copyload, 1, !dbg !300
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+┌ Info: Enzyme config
+│   config = "enzyme_revolve_log2"
+│   nsteps = 128
+│   checkpointing = "revolve"
+└   snaps = 7
+[ Info: Reference call (warmup 1/1)
+[ Info: measured call: wall 1273.482 s, peak RSS 6.088 GiB (delta 4.392 GiB) [linux_vmhwm]
+[ Info: saved gradients to /results/table/enzyme_revolve_log2/N0128/gradients.jld2
+[ Info: Measuring 12 call(s) (last warmup took 1273.48 s)
+[ Info: measured call: wall 1095.307 s, peak RSS 6.112 GiB (delta 2.084 GiB) [linux_vmhwm]
+[ Info: measured call: wall 1095.580 s, peak RSS 6.121 GiB (delta 2.084 GiB) [linux_vmhwm]
+[ Info: measured call: wall 1096.502 s, peak RSS 6.156 GiB (delta 2.119 GiB) [linux_vmhwm]
+[ Info: measured call: wall 1096.927 s, peak RSS 6.167 GiB (delta 2.101 GiB) [linux_vmhwm]
+[ Info: measured call: wall 1096.298 s, peak RSS 6.165 GiB (delta 2.092 GiB) [linux_vmhwm]
+[ Info: measured call: wall 1096.413 s, peak RSS 6.177 GiB (delta 2.092 GiB) [linux_vmhwm]
+[ Info: measured call: wall 1096.550 s, peak RSS 6.169 GiB (delta 2.074 GiB) [linux_vmhwm]
+[ Info: measured call: wall 1096.853 s, peak RSS 6.176 GiB (delta 2.101 GiB) [linux_vmhwm]
+[ Info: measured call: wall 1096.842 s, peak RSS 6.183 GiB (delta 2.092 GiB) [linux_vmhwm]
+[ Info: measured call: wall 1096.852 s, peak RSS 6.192 GiB (delta 2.101 GiB) [linux_vmhwm]
+[ Info: measured call: wall 1096.760 s, peak RSS 6.172 GiB (delta 2.074 GiB) [linux_vmhwm]
+[ Info: measured call: wall 1096.284 s, peak RSS 6.167 GiB (delta 2.084 GiB) [linux_vmhwm]
+[ Info: [enzyme_revolve_log2 N=128] runtime 1096.431 ± 0.328 s (95% CI, n=12), peak RSS 6.163 GiB, objective 2.494933003335e+00 → /results/table/enzyme_revolve_log2/N0128/result.json

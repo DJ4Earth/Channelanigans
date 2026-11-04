@@ -1,0 +1,68 @@
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+┌ Info: Reactant config
+│   config = "reactant_periodic"
+│   nsteps = 64
+│   optimize = true
+│   mincut = true
+└   checkpointing = ReactantCore.Periodic(8)
+┌ Info: Built HydrostaticFreeSurfaceModel{ReactantState, ImmersedBoundaryGrid}(time = 0 seconds, iteration = ConcretePJRTNumber(0))
+│ ├── grid: 80×160×32 ImmersedBoundaryGrid{Float64, Periodic, Bounded, Bounded} on ReactantState with 4×4×4 halo
+│ ├── timestepper: QuasiAdamsBashforth2TimeStepper
+│ ├── tracers: (T, S, e)
+│ ├── closure: Tuple with 3 closures:
+│ │   ├── HorizontalScalarDiffusivity{ExplicitTimeDiscretization}(ν=500.0, κ=(T=5.0e-5, S=5.0e-5, e=5.0e-5))
+│ │   ├── VerticalScalarDiffusivity{ExplicitTimeDiscretization}(ν=0.003, κ=(T=80×160×32 Field{Center, Center, Center} on ImmersedBoundaryGrid on ReactantState, S=80×160×32 Field{Center, Center, Center} on ImmersedBoundaryGrid on ReactantState, e=80×160×32 Field{Center, Center, Center} on ImmersedBoundaryGrid on ReactantState))
+│ │   └── ScalarBiharmonicDiffusivity{HorizontalFormulation}(ν=1.0e11, κ=nothing)
+│ ├── buoyancy: SeawaterBuoyancy with g=9.80665 and LinearEquationOfState(thermal_expansion=0.000167, haline_contraction=0.00078) with ĝ = NegativeZDirection()
+│ ├── free surface: SplitExplicitFreeSurface with gravitational acceleration 9.80665 m s⁻²
+│ │   └── substepping: FixedSubstepNumber(7)
+│ ├── advection scheme: 
+│ │   ├── momentum: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ │   ├── T: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ │   ├── S: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ │   └── e: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ ├── vertical_coordinate: ZCoordinate
+└ └── coriolis: BetaPlane{Oceananigans.Advection.EnstrophyConserving{Float64}, Float64}
+[ Info: Compiling...
+[ Info: compile time 163.16 s
+[ Info: Reference call (warmup 1/1)
+[ Info: measured call: wall 474.680 s, peak RSS 23.374 GiB (delta 18.624 GiB) [linux_vmhwm]
+[ Info: saved gradients to /results/table/reactant_periodic/N0064/gradients.jld2
+[ Info: Measuring 12 call(s) (last warmup took 474.68 s)
+[ Info: measured call: wall 470.612 s, peak RSS 23.196 GiB (delta 18.361 GiB) [linux_vmhwm]
+[ Info: measured call: wall 470.217 s, peak RSS 23.204 GiB (delta 18.369 GiB) [linux_vmhwm]
+[ Info: measured call: wall 470.421 s, peak RSS 23.204 GiB (delta 18.369 GiB) [linux_vmhwm]
+[ Info: measured call: wall 470.199 s, peak RSS 23.199 GiB (delta 18.365 GiB) [linux_vmhwm]
+[ Info: measured call: wall 469.970 s, peak RSS 23.196 GiB (delta 18.361 GiB) [linux_vmhwm]
+[ Info: measured call: wall 470.487 s, peak RSS 23.200 GiB (delta 18.365 GiB) [linux_vmhwm]
+[ Info: measured call: wall 470.214 s, peak RSS 23.213 GiB (delta 18.369 GiB) [linux_vmhwm]
+[ Info: measured call: wall 470.607 s, peak RSS 23.199 GiB (delta 18.365 GiB) [linux_vmhwm]
+[ Info: measured call: wall 469.568 s, peak RSS 23.199 GiB (delta 18.365 GiB) [linux_vmhwm]
+[ Info: measured call: wall 469.998 s, peak RSS 23.209 GiB (delta 18.369 GiB) [linux_vmhwm]
+[ Info: measured call: wall 469.984 s, peak RSS 23.200 GiB (delta 18.365 GiB) [linux_vmhwm]
+[ Info: measured call: wall 470.158 s, peak RSS 23.200 GiB (delta 18.365 GiB) [linux_vmhwm]
+[ Info: [reactant_periodic N=64] runtime 470.203 ± 0.192 s (95% CI, n=12), peak RSS 23.201 GiB, objective 1.303761778374e+00 → /results/table/reactant_periodic/N0064/result.json
