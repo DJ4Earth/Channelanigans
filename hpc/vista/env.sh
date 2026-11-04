@@ -46,9 +46,17 @@ apptainer_exec() {
         "$SIF" "$@"
 }
 
+# Lmod's `module` is not safe under `set -u`/`set -e` (it references unset variables,
+# which silently kills the calling script), so relax both just for the module load.
 load_apptainer() {
-    command -v apptainer >/dev/null 2>&1 || module load tacc-apptainer 2>/dev/null || true
-    command -v apptainer >/dev/null 2>&1 || { echo "apptainer not found (module load tacc-apptainer?)" >&2; exit 2; }
+    if ! command -v apptainer >/dev/null 2>&1; then
+        local saved=$-
+        set +eu
+        module load tacc-apptainer
+        [[ $saved == *u* ]] && set -u
+        [[ $saved == *e* ]] && set -e
+    fi
+    command -v apptainer >/dev/null 2>&1 || { echo "apptainer not found (tried: module load tacc-apptainer)" >&2; exit 2; }
 }
 
 # HH:MM:SS → seconds
