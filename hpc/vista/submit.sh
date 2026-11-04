@@ -50,7 +50,9 @@ submit() {   # submit <job name> <walltime> <script | --wrap CMD> [extra --expor
     local name=$1 wt=$2 vars=${4:-}
     local target=("$HPC_DIR/$3")
     [[ $3 == --wrap=* ]] && target=("$3")
-    local cmd=(sbatch -A "$ACCOUNT" -p "$PARTITION" -J "$name" -t "$wt"
+    # -N/-n repeat the scripts' #SBATCH lines; a --wrap job has none, and TACC
+    # rejects any submission without an explicit node count.
+    local cmd=(sbatch -A "$ACCOUNT" -p "$PARTITION" -N 1 -n 1 -J "$name" -t "$wt"
                -o "$LOG_DIR/%x.%j.out"
                ${MAIL_USER:+--mail-user="$MAIL_USER" --mail-type="${MAIL_TYPE:-END,FAIL}"}
                --export="ALL,HPC_DIR=$HPC_DIR${vars:+,$vars}" "${target[@]}")
