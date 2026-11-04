@@ -4,11 +4,9 @@ This folder holds the data behind the CPU AD cost table: the cost of one
 reverse-mode gradient of the channel model for 9 AD configurations at N = 4, 8, 16,
 32, 64, 128 and 256 timesteps.
 
-> **Status (2026-11-04): 61 of 63 cases are in.** 58 are `ok` and 2 ran out of
-> memory (`m`). `enzyme_naive` at N = 256 is under re-check (see below). Two cases
-> were still running when this was committed: `reactant_periodic_mincut_off` and
-> `enzyme_revolve_log2` at N = 256. They show as `p` in the table and will be added
-> in a later commit.
+> **Status (2026-11-04): complete.** All 63 cases are in: 60 finished (`ok`) and 3
+> ran out of the node's memory (`m`): `reactant_mincut_off` at N = 128 and 256,
+> and `enzyme_naive` at N = 256.
 
 ## How the data was produced
 
@@ -69,9 +67,12 @@ the check; it needs the `gradients.jld2` files from the Zenodo archive.
 
 ## Reading the table
 
-- **Out of memory:** `reactant_mincut_off` at N = 128 and 256 exceeded the node's
-  memory. XLA reports it directly: at N = 128 it failed to allocate a single
-  363 GB buffer (`RESOURCE_EXHAUSTED: Out of memory allocating 363163280400 bytes`).
+- **Out of memory:** three cases exceeded the node's memory.
+  - `reactant_mincut_off` at N = 128 and 256: XLA reports it directly. At N = 128 it
+    failed to allocate a single 363 GB buffer
+    (`RESOURCE_EXHAUSTED: Out of memory allocating 363163280400 bytes`).
+  - `enzyme_naive` at N = 256: killed by the kernel's out-of-memory killer (see
+    below).
 - **N = 4:** several Reactant configurations use more memory at N = 4 than at N = 8,
   and their N = 4 calls are unusually fast. This was seen on every machine tested,
   so it is a property of the compiled program at very short loops, not noise.
@@ -81,18 +82,26 @@ the check; it needs the `gradients.jld2` files from the Zenodo archive.
   lower: 1.61e10 against 2.32e10 counted for `reactant_full` at N = 4. The two
   measure different things.
 
-## Known issue: `enzyme_naive` at N = 256
+## `enzyme_naive` at N = 256: run without hardware counters
 
-This case is recorded as `e` ("driver exited cleanly but wrote no result.json").
-The evidence points to the kernel's out-of-memory killer:
-- SLURM recorded a maximum memory of about 219.5 GiB before the process died;
-- memory grows linearly in N, so this case needs about 270 GiB (138.7 GiB at
-  N = 128).
+Memory for this configuration grows linearly in N (138.7 GiB at N = 128), so
+N = 256 needs about 270 GiB, more than the node has. The kernel's out-of-memory
+killer stopped the process.
 
-It is labelled `e` instead of `m` because the driver runs under `perf stat`, which
-reports a killed child as a clean exit. The case is being rerun without perf, so
-that the kill reaches the orchestrator as `SIGKILL` and is classified directly.
-This README will be updated with the result.
+**First run, under `perf` (job 1120577): recorded as `e`.**
+- `perf stat` reports a killed child process as a clean exit, so the orchestrator
+  saw no error.
+- SLURM recorded a maximum memory of about 219.5 GiB before the process died.
+
+**Rerun, without `perf` (job 1121831): recorded as `m`.** The kill reached the
+orchestrator directly as `SIGKILL`, and it classified the case as `m` ("killed by
+SIGKILL (likely OOM killer)"). This rerun is the result reported here; its
+`job_info.json` records `"perf_mode": "off"`. A case that runs out of memory has no
+FLOPs to report, so nothing is lost by running without counters. The first attempt
+is kept in the sweep's `_superseded/` directory and will be included in the Zenodo
+archive.
+
+In every other case, `perf` was on and the outcome was classified directly.
 
 ## Regenerating the table
 

@@ -30,10 +30,10 @@
 \quad $\Delta$Memory [GiB] & $11.57 \pm 0.00$ & $17.90 \pm 0.00$ & $17.99 \pm 0.00$ & $18.18 \pm 0.00$ & $18.37 \pm 0.00$ & $18.69 \pm 0.00$ & $19.11 \pm 0.00$ \\
 \addlinespace
 \multicolumn{8}{l}{\itshape Fully optimized, periodic checkpointing, mincut disabled} \\
-\quad FLOPs [$10^{11}$] & $0.232 \pm 0.000$ & $1.520 \pm 0.000$ & $3.028 \pm 0.000$ & $6.065 \pm 0.000$ & $12.083 \pm 0.000$ & $24.300 \pm 0.000$ & --\textsuperscript{p} \\
-\quad Runtime [s] & $7.46 \pm 0.09$ & $83.65 \pm 0.16$ & $166.15 \pm 0.04$ & $314.48 \pm 0.10$ & $646.16 \pm 0.32$ & $1286.13 \pm 0.91$ & --\textsuperscript{p} \\
-\quad Memory [GiB] & $16.73 \pm 0.00$ & $30.75 \pm 0.00$ & $30.87 \pm 0.00$ & $38.94 \pm 0.00$ & $41.07 \pm 0.00$ & $52.26 \pm 0.00$ & --\textsuperscript{p} \\
-\quad $\Delta$Memory [GiB] & $11.57 \pm 0.00$ & $25.82 \pm 0.00$ & $25.92 \pm 0.00$ & $34.07 \pm 0.00$ & $36.18 \pm 0.00$ & $47.34 \pm 0.00$ & --\textsuperscript{p} \\
+\quad FLOPs [$10^{11}$] & $0.232 \pm 0.000$ & $1.520 \pm 0.000$ & $3.028 \pm 0.000$ & $6.065 \pm 0.000$ & $12.083 \pm 0.000$ & $24.300 \pm 0.000$ & $48.436 \pm 0.000$ \\
+\quad Runtime [s] & $7.46 \pm 0.09$ & $83.65 \pm 0.16$ & $166.15 \pm 0.04$ & $314.48 \pm 0.10$ & $646.16 \pm 0.32$ & $1286.13 \pm 0.91$ & $2821.89 \pm 0.55$ \\
+\quad Memory [GiB] & $16.73 \pm 0.00$ & $30.75 \pm 0.00$ & $30.87 \pm 0.00$ & $38.94 \pm 0.00$ & $41.07 \pm 0.00$ & $52.26 \pm 0.00$ & $61.61 \pm 0.00$ \\
+\quad $\Delta$Memory [GiB] & $11.57 \pm 0.00$ & $25.82 \pm 0.00$ & $25.92 \pm 0.00$ & $34.07 \pm 0.00$ & $36.18 \pm 0.00$ & $47.34 \pm 0.00$ & $56.70 \pm 0.00$ \\
 \addlinespace
 \multicolumn{8}{l}{\itshape Fully optimized, binomial checkpointing ($b = 10$)} \\
 \quad FLOPs [$10^{11}$] & $0.232 \pm 0.000$ & $0.780 \pm 0.000$ & $1.608 \pm 0.000$ & $3.306 \pm 0.000$ & $6.728 \pm 0.000$ & $14.149 \pm 0.000$ & $28.909 \pm 0.000$ \\
@@ -48,15 +48,15 @@
 \quad $\Delta$Memory [GiB] & $11.57 \pm 0.00$ & $4.23 \pm 0.00$ & $4.30 \pm 0.00$ & $4.38 \pm 0.00$ & $4.46 \pm 0.00$ & $4.53 \pm 0.00$ & $4.60 \pm 0.00$ \\
 \addlinespace
 \multicolumn{8}{l}{\itshape AD only, no prior optimization} \\
-\quad FLOPs [$10^{11}$] & $0.212 \pm 0.000$ & $0.398 \pm 0.000$ & $0.772 \pm 0.000$ & $1.522 \pm 0.000$ & $3.016 \pm 0.000$ & $6.008 \pm 0.000$ & --\textsuperscript{e} \\
-\quad Runtime [s] & $6.59 \pm 0.00$ & $12.06 \pm 0.01$ & $24.35 \pm 0.03$ & $48.30 \pm 0.10$ & $96.80 \pm 0.05$ & $197.18 \pm 0.26$ & --\textsuperscript{e} \\
-\quad Memory [GiB] & $8.48 \pm 0.01$ & $12.72 \pm 0.00$ & $21.10 \pm 0.01$ & $37.90 \pm 0.01$ & $71.51 \pm 0.01$ & $138.81 \pm 0.04$ & --\textsuperscript{e} \\
-\quad $\Delta$Memory [GiB] & $4.52 \pm 0.01$ & $8.66 \pm 0.00$ & $17.04 \pm 0.01$ & $33.80 \pm 0.01$ & $67.34 \pm 0.02$ & $134.57 \pm 0.04$ & --\textsuperscript{e} \\
+\quad FLOPs [$10^{11}$] & $0.212 \pm 0.000$ & $0.398 \pm 0.000$ & $0.772 \pm 0.000$ & $1.522 \pm 0.000$ & $3.016 \pm 0.000$ & $6.008 \pm 0.000$ & --\textsuperscript{m} \\
+\quad Runtime [s] & $6.59 \pm 0.00$ & $12.06 \pm 0.01$ & $24.35 \pm 0.03$ & $48.30 \pm 0.10$ & $96.80 \pm 0.05$ & $197.18 \pm 0.26$ & --\textsuperscript{m} \\
+\quad Memory [GiB] & $8.48 \pm 0.01$ & $12.72 \pm 0.00$ & $21.10 \pm 0.01$ & $37.90 \pm 0.01$ & $71.51 \pm 0.01$ & $138.81 \pm 0.04$ & --\textsuperscript{m} \\
+\quad $\Delta$Memory [GiB] & $4.52 \pm 0.01$ & $8.66 \pm 0.00$ & $17.04 \pm 0.01$ & $33.80 \pm 0.01$ & $67.34 \pm 0.02$ & $134.57 \pm 0.04$ & --\textsuperscript{m} \\
 \addlinespace
 \multicolumn{8}{l}{\itshape AD only, no prior optimization, Checkpointing.jl Revolve ($b = \log_2 N$)} \\
-\quad FLOPs [$10^{11}$] & $0.293 \pm 0.000$ & $0.588 \pm 0.000$ & $1.193 \pm 0.000$ & $2.532 \pm 0.000$ & $5.306 \pm 0.000$ & $11.053 \pm 0.000$ & --\textsuperscript{p} \\
-\quad Runtime [s] & $22.11 \pm 0.01$ & $47.78 \pm 0.01$ & $101.84 \pm 0.12$ & $237.31 \pm 0.27$ & $507.14 \pm 0.22$ & $1096.43 \pm 0.33$ & --\textsuperscript{p} \\
-\quad Memory [GiB] & $5.76 \pm 0.02$ & $5.81 \pm 0.00$ & $5.86 \pm 0.01$ & $6.00 \pm 0.00$ & $6.05 \pm 0.01$ & $6.16 \pm 0.01$ & --\textsuperscript{p} \\
-\quad $\Delta$Memory [GiB] & $1.75 \pm 0.02$ & $1.75 \pm 0.00$ & $1.83 \pm 0.00$ & $1.93 \pm 0.00$ & $2.00 \pm 0.01$ & $2.09 \pm 0.01$ & --\textsuperscript{p} \\
+\quad FLOPs [$10^{11}$] & $0.293 \pm 0.000$ & $0.588 \pm 0.000$ & $1.193 \pm 0.000$ & $2.532 \pm 0.000$ & $5.306 \pm 0.000$ & $11.053 \pm 0.000$ & $23.612 \pm 0.001$ \\
+\quad Runtime [s] & $22.11 \pm 0.01$ & $47.78 \pm 0.01$ & $101.84 \pm 0.12$ & $237.31 \pm 0.27$ & $507.14 \pm 0.22$ & $1096.43 \pm 0.33$ & $2481.57 \pm 0.95$ \\
+\quad Memory [GiB] & $5.76 \pm 0.02$ & $5.81 \pm 0.00$ & $5.86 \pm 0.01$ & $6.00 \pm 0.00$ & $6.05 \pm 0.01$ & $6.16 \pm 0.01$ & $6.22 \pm 0.00$ \\
+\quad $\Delta$Memory [GiB] & $1.75 \pm 0.02$ & $1.75 \pm 0.00$ & $1.83 \pm 0.00$ & $1.93 \pm 0.00$ & $2.00 \pm 0.01$ & $2.09 \pm 0.01$ & $2.25 \pm 0.01$ \\
 \bottomrule
 \end{tabular}
