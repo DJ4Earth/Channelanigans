@@ -1,8 +1,8 @@
 # Shared settings for the Vista (TACC) runs of the CPU AD cost table.
-# Sourced by gate.slurm, case.slurm, submit.sh and finalize.sh; edit here only.
+# Sourced by gate.slurm, case.slurm, submit.sh and report.sh; edit here only.
 
 # ---- Allocation / partition ------------------------------------------------
-ACCOUNT=Transfer-of-E
+ACCOUNT=Transfer-of-ECCO-glo
 PARTITION=gg                 # Grace-Grace CPU nodes (NVIDIA Grace, Neoverse V2)
 MAX_WALLTIME_H=48            # gg limit; cases predicted to need more are capped
 
