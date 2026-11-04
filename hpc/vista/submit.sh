@@ -38,7 +38,7 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-load_apptainer
+# No apptainer here: on Vista login nodes it is a stub that only prints a banner.
 mkdir -p "$SCRATCH_ROOT" "$WORK_ROOT" "$LOG_DIR"
 [[ -f "$SIF" ]] || { echo "SIF not found: $SIF" >&2; exit 2; }
 
@@ -59,21 +59,33 @@ fi
 
 [[ -n "$walltime" || -n "$walltimes" ]] || { echo "give --walltime or --walltimes" >&2; exit 2; }
 
-# Config names and N list come from the configs.toml inside the image (the code that runs).
-case_list=$(apptainer_exec julia -e '
-    using TOML
-    all = TOML.parsefile("/opt/channelanigans/bench/configs.toml")
-    names = ARGS[1] == "table" ? all["table"]["rows"] : split(ARGS[1], ",")
-    ns = isempty(ARGS[2]) ? all["table"]["nsteps"] : parse.(Int, split(ARGS[2], ","))
-    for n in names; haskey(all["configs"], n) || error("unknown config $n"); end
-    for n in names, N in ns; println("CASE $n $N"); end' "$configs" "$nsteps")
-# Keep only the CASE lines: anything else the container or environment prints to
-# stdout must not be mistaken for (or hide) the case list.
-mapfile -t cases < <(awk '$1 == "CASE" && NF == 3 { print $2 ":" $3 }' <<< "$case_list")
-if [[ ${#cases[@]} -eq 0 ]]; then
-    echo "no cases found; container output was:" >&2; printf '%s\n' "$case_list" >&2; exit 2
+# Config names and the N list come from the repo's bench/configs.toml, which must be
+# identical to the one baked into the image (the code that actually runs).
+TOML=$REPO_DIR/bench/configs.toml
+if ! git -C "$REPO_DIR" diff --quiet "$IMAGE_COMMIT" -- bench/configs.toml 2>/dev/null; then
+    echo "bench/configs.toml differs from the image's (commit ${IMAGE_COMMIT:0:7}), or that" >&2
+    echo "commit is not in this checkout; the case list would not match the code that runs." >&2
+    exit 2
 fi
-echo "${#cases[@]} case(s) selected"
+# [table] section with comments stripped, as one line; then pull out an array value.
+table=$(awk '/^\[/ { t = ($0 ~ /^\[table\]/); next } t { sub(/#.*/, ""); printf "%s ", $0 }' "$TOML")
+toml_array() { sed -n "s/.*$1 *= *\[\([^]]*\)\].*/\1/p" <<< "$table" | tr -d '" ' | tr ',' ' '; }
+known=" $(sed -n 's/^\[configs\.\([A-Za-z0-9_]*\)\].*/\1/p' "$TOML" | tr '\n' ' ') "
+
+if [[ $configs == table ]]; then read -r -a names <<< "$(toml_array rows)"
+else IFS=, read -r -a names <<< "$configs"; fi
+if [[ -z $nsteps ]]; then read -r -a ns <<< "$(toml_array nsteps)"
+else IFS=, read -r -a ns <<< "$nsteps"; fi
+for n in "${names[@]}"; do
+    [[ $known == *" $n "* ]] || { echo "unknown config '$n'; known:$known" >&2; exit 2; }
+done
+for N in "${ns[@]}"; do
+    [[ $N =~ ^[0-9]+$ ]] || { echo "bad N '$N'" >&2; exit 2; }
+done
+cases=()
+for n in "${names[@]}"; do for N in "${ns[@]}"; do cases+=("$n:$N"); done; done
+(( ${#cases[@]} > 0 )) || { echo "no cases selected (configs '$configs', nsteps '$nsteps')" >&2; exit 2; }
+echo "${#cases[@]} case(s) selected: ${#names[@]} config(s) × N = ${ns[*]}"
 
 queued=$(squeue -h -u "$USER" -o %j 2>/dev/null || true)
 max_s=$((MAX_WALLTIME_H * 3600))

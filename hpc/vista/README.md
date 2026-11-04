@@ -4,7 +4,10 @@ Each table case (config × N) runs as its own SLURM job on a whole `gg` node
 (NVIDIA Grace), inside the frozen Apptainer image. The settings (allocation, SIF
 path, image digest, result locations) live in [`env.sh`](env.sh).
 
-Run every command from the repo root on a Vista login node.
+Run every command from the repo root. Run `submit.sh` on a login node; it doesn't
+use the container. `report.sh` does use the container, and Vista only allows
+Apptainer on compute nodes, so run it inside a short interactive session:
+`idev -p gg -N 1 -n 1 -t 00:30:00`.
 
 ## 1. Gate (one job, about 1 h)
 

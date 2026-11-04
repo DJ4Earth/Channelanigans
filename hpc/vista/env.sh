@@ -18,6 +18,7 @@ MAIL_TYPE=END,FAIL
 SIF=/work/08955/jlk3675/vista/channelanigans-2026-11-cpu.sif
 IMAGE_REF=channelanigans:2026-11-cpu
 IMAGE_DIGEST=sha256:b9c94c1fbac86e8b7cdc709540fd97850f2069a61bbf480f5709b31b43676df0
+IMAGE_COMMIT=8fcc665421191cb84c1d203829c0e17a89865834   # repo commit baked into the image (BUILD_INFO.txt)
 
 # ---- Results -----------------------------------------------------------------
 # Jobs write to $SCRATCH (fast, purged after inactivity) and copy each finished
