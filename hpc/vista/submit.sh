@@ -66,8 +66,14 @@ case_list=$(apptainer_exec julia -e '
     names = ARGS[1] == "table" ? all["table"]["rows"] : split(ARGS[1], ",")
     ns = isempty(ARGS[2]) ? all["table"]["nsteps"] : parse.(Int, split(ARGS[2], ","))
     for n in names; haskey(all["configs"], n) || error("unknown config $n"); end
-    print(join(["$n:$N" for n in names for N in ns], " "))' "$configs" "$nsteps")
-read -r -a cases <<< "$case_list"
+    for n in names, N in ns; println("CASE $n $N"); end' "$configs" "$nsteps")
+# Keep only the CASE lines: anything else the container or environment prints to
+# stdout must not be mistaken for (or hide) the case list.
+mapfile -t cases < <(awk '$1 == "CASE" && NF == 3 { print $2 ":" $3 }' <<< "$case_list")
+if [[ ${#cases[@]} -eq 0 ]]; then
+    echo "no cases found; container output was:" >&2; printf '%s\n' "$case_list" >&2; exit 2
+fi
+echo "${#cases[@]} case(s) selected"
 
 queued=$(squeue -h -u "$USER" -o %j 2>/dev/null || true)
 max_s=$((MAX_WALLTIME_H * 3600))
