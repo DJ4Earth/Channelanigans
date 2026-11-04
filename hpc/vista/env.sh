@@ -6,6 +6,12 @@ ACCOUNT=Transfer-of-ECCO-glo
 PARTITION=gg                 # Grace-Grace CPU nodes (NVIDIA Grace, Neoverse V2)
 MAX_WALLTIME_H=48            # gg limit; cases predicted to need more are capped
 
+# ---- Email notifications (one email per job; empty MAIL_USER = none) ---------
+# A case that ends as t (timeout) or m (out of memory) is still a successful SLURM
+# job, so use END and check `report.sh status` for the table outcome.
+MAIL_USER=josek97@utexas.edu
+MAIL_TYPE=END,FAIL
+
 # ---- Container image ---------------------------------------------------------
 # The SIF was pulled from the registry image below. The tag is mutable, the digest
 # is not: the digest is what identifies the image that produced the results.

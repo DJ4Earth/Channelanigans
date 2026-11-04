@@ -46,6 +46,7 @@ submit() {   # submit <job name> <walltime> <script> [extra --export vars]
     local name=$1 wt=$2 script=$3 vars=${4:-}
     local cmd=(sbatch -A "$ACCOUNT" -p "$PARTITION" -J "$name" -t "$wt"
                -o "$LOG_DIR/%x.%j.out"
+               ${MAIL_USER:+--mail-user="$MAIL_USER" --mail-type="${MAIL_TYPE:-END,FAIL}"}
                --export="ALL,HPC_DIR=$HPC_DIR${vars:+,$vars}" "$HPC_DIR/$script")
     if [[ $dry -eq 1 ]]; then echo "${cmd[*]}"; else "${cmd[@]}"; fi
 }
