@@ -3,34 +3,38 @@
 # Vista does not allow Apptainer on login nodes; nothing here is heavy.
 #
 #   hpc/vista/report.sh status   # per-case status, timings, memory; predicts walltimes
-#                                # for unfinished cases into hpc/vista/walltimes.tsv
+#                                # for unfinished cases into hpc/vista/$WALLTIMES_FILE
 #   hpc/vista/report.sh final    # table (LaTeX/CSV/Markdown), gradient cross-check,
 #                                # raw-data export + archive, all into $WORK_ROOT/$SWEEP
 #
-# Everything runs inside the same image as the benchmarks.
+# Everything runs inside the same image as the benchmarks. The image profile comes from
+# CH_PROFILE (exported by `submit.sh --profile NAME --report MODE`; default current).
 
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/env.sh"
 # Vista only allows Apptainer on compute nodes (on login nodes it is a stub).
 if [[ -z ${SLURM_JOB_ID:-} ]]; then
     echo "report.sh runs the container, so it needs a compute node. Either submit it as a job:" >&2
-    echo "    hpc/vista/submit.sh --report ${1:-status}" >&2
+    echo "    hpc/vista/submit.sh --profile $CH_PROFILE --report ${1:-status}" >&2
     echo "or run it inside an interactive session:  idev -p $PARTITION -N 1 -n 1 -t 00:30:00 -A $ACCOUNT" >&2
     exit 2
 fi
 load_apptainer
 mkdir -p "$SCRATCH_ROOT" "$WORK_ROOT/$SWEEP"
 RES=/work_results/$SWEEP
+# The profile's table configs ("table" = the rows in configs.toml).
+CFG_ARGS=(); [[ $TABLE_CONFIGS != table ]] && CFG_ARGS=(--configs "$TABLE_CONFIGS")
+echo "profile: $CH_PROFILE   image: $IMAGE_REF   results: $WORK_ROOT/$SWEEP"
 
 case ${1:-status} in
     status)
         apptainer exec --cleanenv --bind "$WORK_ROOT:/work_results" --bind "$HPC_DIR:/hpc" "$SIF" \
-            julia /hpc/plan.jl "$RES" /opt/channelanigans/bench/configs.toml /hpc/walltimes.tsv \
-                  "$MAX_WALLTIME_H" "$TIMEOUT_MARGIN_S"
-        echo "queued/running:"; squeue -u "$USER" -o '%.10i %.40j %.8T %.10M %.10l %R' || true
+            julia /hpc/plan.jl "$RES" /opt/channelanigans/bench/configs.toml "/hpc/$WALLTIMES_FILE" \
+                  "$MAX_WALLTIME_H" "$TIMEOUT_MARGIN_S" "$TABLE_CONFIGS"
+        echo "queued/running:"; squeue -u "$USER" -o '%.10i %.44j %.8T %.10M %.10l %R' || true
         ;;
     final)
-        echo "== table";            apptainer_exec julia /opt/channelanigans/bench/make_table.jl --out "$RES" --ci --flops --delta
+        echo "== table";            apptainer_exec julia /opt/channelanigans/bench/make_table.jl --out "$RES" --ci --flops --delta "${CFG_ARGS[@]}"
         echo "== gradient check";   apptainer_exec julia /opt/channelanigans/bench/check_gradients.jl --out "$RES" \
                                         || echo "gradient check reported failures (see above)"
         echo "== raw-data export";  apptainer_exec julia /opt/channelanigans/bench/export_raw.jl --out "$RES" --archive

@@ -1,5 +1,6 @@
 # Shared settings for the Vista (TACC) runs of the CPU AD cost table.
 # Sourced by gate.slurm, case.slurm, submit.sh and report.sh; edit here only.
+# Image-specific settings live in the profile block below.
 
 # ---- Allocation / partition ------------------------------------------------
 ACCOUNT=Transfer-of-ECCO-glo
@@ -12,20 +13,57 @@ MAX_WALLTIME_H=48            # gg limit; cases predicted to need more are capped
 MAIL_USER=josek97@utexas.edu
 MAIL_TYPE=END,FAIL
 
-# ---- Container image ---------------------------------------------------------
-# The SIF was pulled from the registry image below. The tag is mutable, the digest
-# is not: the digest is what identifies the image that produced the results.
-SIF=/work/08955/jlk3675/vista/channelanigans-2026-11-cpu.sif
-IMAGE_REF=channelanigans:2026-11-cpu
-IMAGE_DIGEST=sha256:b9c94c1fbac86e8b7cdc709540fd97850f2069a61bbf480f5709b31b43676df0
-IMAGE_COMMIT=8fcc665421191cb84c1d203829c0e17a89865834   # repo commit baked into the image (BUILD_INFO.txt)
+# ---- Image profile -------------------------------------------------------------
+# Which container image a run uses, and where its results go. Selected with
+# `submit.sh --profile NAME` (default: current), which exports CH_PROFILE to the jobs.
+# The SIF was pulled from the registry image named in IMAGE_REF. The tag is mutable,
+# the digest is not: the digest identifies the image that produced the results.
+#   SIF            the pulled image on Vista
+#   IMAGE_COMMIT   repo commit baked into the image (its BUILD_INFO.txt)
+#   SWEEP          results subdirectory (under $SCRATCH_ROOT and $WORK_ROOT)
+#   TABLE_CONFIGS  configs for `--configs table`; "table" = the rows in configs.toml
+#   JOB_PREFIX     SLURM job-name prefix, so two profiles never see each other's jobs
+#   WALLTIMES_FILE where `report.sh status` writes its walltime predictions
+#   GATE_WALLTIME / GATE_E2E_TIMEOUT_S   gate job limit / its end-to-end test timeout
+CH_PROFILE=${CH_PROFILE:-current}
+case $CH_PROFILE in
+    current)   # current package versions (Julia 1.12.7, Reactant 0.2.304, ...)
+        SIF=/work/08955/jlk3675/vista/channelanigans-2026-11-cpu.sif
+        IMAGE_REF=channelanigans:2026-11-cpu
+        IMAGE_DIGEST=sha256:b9c94c1fbac86e8b7cdc709540fd97850f2069a61bbf480f5709b31b43676df0
+        IMAGE_COMMIT=8fcc665421191cb84c1d203829c0e17a89865834
+        SWEEP=table
+        TABLE_CONFIGS=table
+        JOB_PREFIX=ch
+        WALLTIMES_FILE=walltimes.tsv
+        GATE_WALLTIME=01:30:00
+        GATE_E2E_TIMEOUT_S=3600
+        ;;
+    aug2026)   # July/August 2026 environment of the original runs (envs/aug2026)
+        SIF=/work/08955/jlk3675/vista/channelanigans-2026-11-aug2026-cpu.sif
+        IMAGE_REF=ghcr.io/jlk9/channelanigans-artifact:2026-11-aug2026-cpu
+        IMAGE_DIGEST=sha256:3b1e17c37ac9738c546caaa486f47fecca9aea0984e7abae1c5502f9bb24693f
+        IMAGE_COMMIT=348789f8cae8e1dcf6c19b227350840dc3ec4938   # + envs/aug2026/Manifest.toml (see envs/aug2026)
+        SWEEP=table_aug2026
+        # The original table's rows: no enzyme_revolve_log2.
+        TABLE_CONFIGS=reactant_full,reactant_after_enzyme,reactant_mincut_off,reactant_periodic,reactant_periodic_mincut_off,reactant_binomial_10,reactant_binomial_log2,enzyme_naive
+        JOB_PREFIX=ch-aug
+        WALLTIMES_FILE=walltimes_aug2026.tsv
+        # Enzyme 0.13.198 spends ~36 min compiling the first gradient (seen in August).
+        GATE_WALLTIME=02:30:00
+        GATE_E2E_TIMEOUT_S=5400
+        ;;
+    *)
+        echo "unknown image profile '$CH_PROFILE' (known: current, aug2026)" >&2
+        return 2 2>/dev/null || exit 2
+        ;;
+esac
 
 # ---- Results -----------------------------------------------------------------
 # Jobs write to $SCRATCH (fast, purged after inactivity) and copy each finished
 # case to $WORK (persistent). Everything downstream reads the $WORK copy.
 SCRATCH_ROOT=$SCRATCH/channelanigans_results
 WORK_ROOT=$WORK/channelanigans_results
-SWEEP=table                  # subdirectory for the table sweep
 LOG_DIR=$WORK_ROOT/slurm_logs
 
 # ---- Benchmark settings (same as the Docker proofing runs) -------------------

@@ -15,6 +15,8 @@ evidence.tar.gz
 # Local-only files (not part of the artifact)
 CLAUDE.md
 Manifest.toml
+# ...except the pinned environments under envs/, whose Manifest is the frozen set
+!envs/*/Manifest.toml
 
 # Benchmark data: the small files (tables, CSV exports, per-case JSON and logs) are
 # committed; the bulky raw files are archived on Zenodo instead.

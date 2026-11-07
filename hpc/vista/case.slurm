@@ -71,6 +71,7 @@ cat > "$DST/job_info.json" <<EOF
   "core": $CORE,
   "driver_args": "$DRIVER_ARGS",
   "perf_mode": "${PERF:-on}",
+  "image_profile": "${CH_PROFILE:-current}",
   "sif": "$SIF",
   "image_ref": "$IMAGE_REF",
   "image_digest": "$IMAGE_DIGEST",

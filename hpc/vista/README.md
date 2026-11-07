@@ -10,6 +10,27 @@ short job with `submit.sh --report status` (or `--report final`); its output lan
 in `$WORK/channelanigans_results/slurm_logs/ch-report-<mode>.<jobid>.out`. Inside an
 `idev` session you can also run `hpc/vista/report.sh status` directly.
 
+## Image profiles
+
+Two container images can be run, selected with `--profile` on every `submit.sh`
+call. The image settings are in [`env.sh`](env.sh).
+
+| Profile | Image | Results in `$WORK/channelanigans_results/` | Table rows |
+|---|---|---|---|
+| `current` (default) | current package versions (Julia 1.12.7, Reactant 0.2.304) | `table/` | all 9 in `bench/configs.toml` |
+| `aug2026` | the July/August 2026 environment of the original runs ([`envs/aug2026`](../../envs/aug2026/)) | `table_aug2026/` | the original 8 (no Revolve) |
+
+Each profile gets its own job names (`ch-…` and `ch-aug-…`), so the two sweeps never
+skip or collide with each other's jobs. For `aug2026`, the walltimes for every case
+are in [`walltimes_aug2026_seed.tsv`](walltimes_aug2026_seed.tsv), seeded from the
+original runs' per-call times, so the sweep can be submitted in one go:
+
+```bash
+hpc/vista/submit.sh --profile aug2026 --gate
+hpc/vista/submit.sh --profile aug2026 --walltimes hpc/vista/walltimes_aug2026_seed.tsv
+hpc/vista/submit.sh --profile aug2026 --report status    # predictions -> walltimes_aug2026.tsv
+```
+
 ## 1. Gate (one job, about 1 h)
 
 ```bash

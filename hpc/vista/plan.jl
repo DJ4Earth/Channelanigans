@@ -1,6 +1,7 @@
 # Status of the sweep + walltime predictions for the cases not yet done.
 #
-#   (via hpc/vista/report.sh status)   julia plan.jl RESULTS_DIR CONFIGS_TOML WALLTIMES_OUT MAX_WALLTIME_H MARGIN_S
+#   (via hpc/vista/report.sh status)   julia plan.jl RESULTS_DIR CONFIGS_TOML WALLTIMES_OUT MAX_WALLTIME_H MARGIN_S [CONFIGS]
+#   CONFIGS: comma-separated config list, or "table" (default) for the rows in CONFIGS_TOML
 #
 # For each config, fits per-call time t(N) and peak memory M(N) to the finished cases
 # (power law through the two largest N; one point → linear), then predicts the
@@ -44,9 +45,10 @@ end
 
 hms(s) = @sprintf("%02d:%02d:00", s ÷ 3600, (s % 3600) ÷ 60)
 
-function main(resdir, cfgfile, wtfile, maxh, margin)
+function main(resdir, cfgfile, wtfile, maxh, margin, configs = "table")
     all = TOML.parsefile(cfgfile)
-    names, nsteps = all["table"]["rows"], all["table"]["nsteps"]
+    names = configs == "table" ? all["table"]["rows"] : split(configs, ',')
+    nsteps = all["table"]["nsteps"]
     maxs = maxh * 3600
     lines = String[]
     @printf("%-30s %5s  %-6s %10s %10s %9s   %s\n", "config", "N", "status", "elapsed", "t/call", "peak GiB", "next walltime / notes")
@@ -89,4 +91,5 @@ function main(resdir, cfgfile, wtfile, maxh, margin)
     println("\nwrote $(length(lines)) walltime(s) to $wtfile")
 end
 
-main(ARGS[1], ARGS[2], ARGS[3], parse(Int, ARGS[4]), parse(Int, ARGS[5]))
+main(ARGS[1], ARGS[2], ARGS[3], parse(Int, ARGS[4]), parse(Int, ARGS[5]),
+     length(ARGS) >= 6 ? ARGS[6] : "table")

@@ -5,9 +5,13 @@
 #   hpc/vista/submit.sh --nsteps 4,8 --walltime 04:00:00   # wave 1: all table configs
 #   hpc/vista/submit.sh --walltimes hpc/vista/walltimes.tsv  # later waves, per-case limits
 #   hpc/vista/submit.sh --report status                 # run report.sh as a short job
+#   hpc/vista/submit.sh --profile aug2026 ...           # same, for the August-environment image
 #
 # Options:
-#   --configs LIST     comma-separated config names, or "table" (default: table rows)
+#   --profile NAME     image profile from env.sh: current (default) or aug2026. Sets the
+#                      image, the results folder, the table's configs and job names
+#   --configs LIST     comma-separated config names, or "table" (default: the profile's
+#                      table configs)
 #   --nsteps LIST      comma-separated N (default: the table's N list)
 #   --walltime T       HH:MM:SS for every selected case
 #   --walltimes FILE   per-case limits, lines "config<TAB>N<TAB>HH:MM:SS" (written by
@@ -25,6 +29,14 @@
 # MAX_WALLTIME_H.
 
 set -euo pipefail
+# The image profile must be known before env.sh is read. Only --profile selects it (an
+# inherited CH_PROFILE is ignored); it is exported so the jobs (--export=ALL) use it too.
+CH_PROFILE=current
+args=("$@")
+for ((i = 0; i < ${#args[@]}; i++)); do
+    [[ ${args[i]} == --profile ]] && CH_PROFILE=${args[i+1]:-}
+done
+export CH_PROFILE
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/env.sh"
 
 configs=table; nsteps=""; walltime=""; walltimes=""; force=0; dry=0; gate=0; report=""; perf=on
@@ -40,7 +52,8 @@ while [[ $# -gt 0 ]]; do
         --perf) perf=$2; shift
                 [[ $perf == on || $perf == off ]] || { echo "--perf takes on or off" >&2; exit 2; } ;;
         --dry-run) dry=1 ;;
-        -h|--help) sed -n '2,27p' "$0"; exit 0 ;;
+        --profile) shift ;;   # read before env.sh was sourced (above)
+        -h|--help) sed -n '2,31p' "$0"; exit 0 ;;
         *) echo "unknown option $1" >&2; exit 2 ;;
     esac
     shift
@@ -66,15 +79,15 @@ submit() {   # submit <job name> <walltime> <script | --wrap CMD> [extra --expor
 if [[ -n $report ]]; then
     [[ $report == status || $report == final ]] || { echo "--report takes status or final" >&2; exit 2; }
     # --wrap runs report.sh from the repo (not a spooled copy), so it finds env.sh.
-    submit "ch-report-$report" "$([[ $report == final ]] && echo 01:00:00 || echo 00:20:00)" \
+    submit "$JOB_PREFIX-report-$report" "$([[ $report == final ]] && echo 01:00:00 || echo 00:20:00)" \
         "--wrap=bash $HPC_DIR/report.sh $report"
-    echo "report log: $LOG_DIR/ch-report-$report.<jobid>.out"
+    echo "report log: $LOG_DIR/$JOB_PREFIX-report-$report.<jobid>.out"
     exit 0
 fi
 
 if [[ $gate -eq 1 ]]; then
-    submit ch-gate 01:30:00 gate.slurm
-    echo "gate log: $LOG_DIR/ch-gate.<jobid>.out"
+    submit "$JOB_PREFIX-gate" "$GATE_WALLTIME" gate.slurm
+    echo "gate log: $LOG_DIR/$JOB_PREFIX-gate.<jobid>.out"
     exit 0
 fi
 
@@ -93,6 +106,7 @@ table=$(awk '/^\[/ { t = ($0 ~ /^\[table\]/); next } t { sub(/#.*/, ""); printf 
 toml_array() { sed -n "s/.*$1 *= *\[\([^]]*\)\].*/\1/p" <<< "$table" | tr -d '" ' | tr ',' ' '; }
 known=" $(sed -n 's/^\[configs\.\([A-Za-z0-9_]*\)\].*/\1/p' "$TOML" | tr '\n' ' ') "
 
+[[ $configs == table && $TABLE_CONFIGS != table ]] && configs=$TABLE_CONFIGS
 if [[ $configs == table ]]; then read -r -a names <<< "$(toml_array rows)"
 else IFS=, read -r -a names <<< "$configs"; fi
 if [[ -z $nsteps ]]; then read -r -a ns <<< "$(toml_array nsteps)"
@@ -106,14 +120,14 @@ done
 cases=()
 for n in "${names[@]}"; do for N in "${ns[@]}"; do cases+=("$n:$N"); done; done
 (( ${#cases[@]} > 0 )) || { echo "no cases selected (configs '$configs', nsteps '$nsteps')" >&2; exit 2; }
-echo "${#cases[@]} case(s) selected: ${#names[@]} config(s) × N = ${ns[*]}"
+echo "profile $CH_PROFILE: ${#cases[@]} case(s) selected: ${#names[@]} config(s) × N = ${ns[*]}"
 
 queued=$(squeue -h -u "$USER" -o %j 2>/dev/null || true)
 max_s=$((MAX_WALLTIME_H * 3600))
 nsub=0
 for c in "${cases[@]}"; do
     cfg=${c%%:*}; N=${c##*:}
-    name=ch-$cfg-N$N
+    name=$JOB_PREFIX-$cfg-N$N
     dst=$WORK_ROOT/$SWEEP/$cfg/$(printf 'N%04d' "$N")
     if [[ $force -eq 0 && -f $dst/status.json ]] && grep -q '"status": "ok"' "$dst/status.json"; then
         echo "skip $name: already ok"; continue

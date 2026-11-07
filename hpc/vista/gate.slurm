@@ -1,7 +1,7 @@
 #!/bin/bash
 # Gate job: verify a gg node can produce valid table data before the sweep.
 #
-#   hpc/vista/submit.sh --gate        (from the repo root)
+#   hpc/vista/submit.sh [--profile NAME] --gate        (from the repo root)
 #
 # 1. Node facts (CPU, memory, kernel, perf settings) and image provenance.
 # 2. FLOP counters: perf_gate_test.jl counts one 1000×1000 Float64 matmul with the
@@ -25,7 +25,7 @@ mkdir -p "$SCRATCH_ROOT" "$WORK_ROOT" "$GATE_DIR"
 fail=0
 
 echo "===== 1. node and image"
-echo "host: $(hostname)   job: $SLURM_JOB_ID   date: $(date -u +%FT%TZ)"
+echo "host: $(hostname)   job: $SLURM_JOB_ID   date: $(date -u +%FT%TZ)   profile: $CH_PROFILE"
 echo "kernel: $(uname -r)   perf_event_paranoid: $(cat /proc/sys/kernel/perf_event_paranoid)"
 lscpu | grep -E 'Model name|^CPU\(s\)|Socket|NUMA node\(s\)|Thread'
 free -g | head -2
@@ -56,7 +56,7 @@ echo
 echo "===== 3. end-to-end attribution test (N=4, 2 measured calls)"
 apptainer_exec julia /opt/channelanigans/bench/run_cases.jl \
     --configs reactant_full,enzyme_naive --nsteps 4 --out /work_results/gate/$SLURM_JOB_ID/e2e \
-    --perf on --numactl on --core "$CORE" --timeout 3600 \
+    --perf on --numactl on --core "$CORE" --timeout "$GATE_E2E_TIMEOUT_S" \
     -- --repeats 2 --save-gradients || fail=1
 apptainer_exec julia -e '
     using JSON

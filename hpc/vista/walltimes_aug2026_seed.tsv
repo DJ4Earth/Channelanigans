@@ -1,0 +1,122 @@
+# Walltimes for the August-environment sweep (profile aug2026), seeded from the
+# original July/August 2026 runs before any aug2026 case had run.
+#   walltime = 1.5 x 13 calls x t/call + compile allowance (Reactant 30 min,
+#              Enzyme 60 min: Enzyme 0.13.198 compiles for ~36 min) + 30 min margin,
+#              rounded up to 30 min, at least 1 h, at most 48 h.
+#   t/call: the August per-call time where the August log has one ("aug"); else the
+#   current-version sweep's per-call time scaled by the August/current ratio at the
+#   largest N both have ("cur*r"); else linear in N from the largest known N.
+# Columns: config<TAB>N<TAB>HH:MM:SS (comment lines are ignored by submit.sh).
+#
+#   reactant_full                 N=4    t/call≈    11.1 s  (aug)
+#   reactant_full                 N=8    t/call≈    21.3 s  (aug)
+#   reactant_full                 N=16   t/call≈    43.9 s  (aug)
+#   reactant_full                 N=32   t/call≈    86.5 s  (aug)
+#   reactant_full                 N=64   t/call≈   171.7 s  (aug)
+#   reactant_full                 N=128  t/call≈   345.4 s  (aug)
+#   reactant_full                 N=256  t/call≈   700.6 s  (aug)
+#   reactant_after_enzyme         N=4    t/call≈    13.6 s  (aug)
+#   reactant_after_enzyme         N=8    t/call≈    23.3 s  (aug)
+#   reactant_after_enzyme         N=16   t/call≈    46.4 s  (aug)
+#   reactant_after_enzyme         N=32   t/call≈    94.0 s  (aug)
+#   reactant_after_enzyme         N=64   t/call≈   182.8 s  (aug)
+#   reactant_after_enzyme         N=128  t/call≈   377.8 s  (aug)
+#   reactant_after_enzyme         N=256  t/call≈   745.5 s  (aug)
+#   reactant_mincut_off           N=4    t/call≈    10.8 s  (aug)
+#   reactant_mincut_off           N=8    t/call≈    35.0 s  (aug)
+#   reactant_mincut_off           N=16   t/call≈    76.2 s  (aug)
+#   reactant_mincut_off           N=32   t/call≈   170.3 s  (aug)
+#   reactant_mincut_off           N=64   t/call≈   499.2 s  (cur*1.30)
+#   reactant_mincut_off           N=128  t/call≈   998.5 s  (lin from N64)
+#   reactant_mincut_off           N=256  t/call≈  1996.9 s  (lin from N128)
+#   reactant_periodic             N=4    t/call≈    13.5 s  (aug)
+#   reactant_periodic             N=8    t/call≈    26.6 s  (aug)
+#   reactant_periodic             N=16   t/call≈    52.9 s  (aug)
+#   reactant_periodic             N=32   t/call≈   296.6 s  (aug)
+#   reactant_periodic             N=64   t/call≈   575.2 s  (aug)
+#   reactant_periodic             N=128  t/call≈  1154.7 s  (cur*1.22)
+#   reactant_periodic             N=256  t/call≈  2280.9 s  (cur*1.22)
+#   reactant_periodic_mincut_off  N=4    t/call≈    11.0 s  (aug)
+#   reactant_periodic_mincut_off  N=8    t/call≈    40.8 s  (aug)
+#   reactant_periodic_mincut_off  N=16   t/call≈    75.9 s  (aug)
+#   reactant_periodic_mincut_off  N=32   t/call≈   432.0 s  (cur*1.37)
+#   reactant_periodic_mincut_off  N=64   t/call≈   887.6 s  (aug)
+#   reactant_periodic_mincut_off  N=128  t/call≈  1766.6 s  (cur*1.37)
+#   reactant_periodic_mincut_off  N=256  t/call≈  3876.1 s  (cur*1.37)
+#   reactant_binomial_10          N=4    t/call≈    13.4 s  (aug)
+#   reactant_binomial_10          N=8    t/call≈    24.2 s  (aug)
+#   reactant_binomial_10          N=16   t/call≈    51.0 s  (aug)
+#   reactant_binomial_10          N=32   t/call≈   103.7 s  (aug)
+#   reactant_binomial_10          N=64   t/call≈   209.4 s  (aug)
+#   reactant_binomial_10          N=128  t/call≈   425.5 s  (cur*1.06)
+#   reactant_binomial_10          N=256  t/call≈   854.7 s  (cur*1.06)
+#   reactant_binomial_log2        N=4    t/call≈    13.3 s  (aug)
+#   reactant_binomial_log2        N=8    t/call≈    25.8 s  (aug)
+#   reactant_binomial_log2        N=16   t/call≈    52.3 s  (aug)
+#   reactant_binomial_log2        N=32   t/call≈   108.1 s  (aug)
+#   reactant_binomial_log2        N=64   t/call≈   215.9 s  (aug)
+#   reactant_binomial_log2        N=128  t/call≈   453.6 s  (aug)
+#   reactant_binomial_log2        N=256  t/call≈   930.4 s  (aug)
+#   enzyme_naive                  N=4    t/call≈     9.3 s  (aug)
+#   enzyme_naive                  N=8    t/call≈    29.2 s  (cur*2.42)
+#   enzyme_naive                  N=16   t/call≈    36.4 s  (aug)
+#   enzyme_naive                  N=32   t/call≈    76.1 s  (aug)
+#   enzyme_naive                  N=64   t/call≈   184.0 s  (aug)
+#   enzyme_naive                  N=128  t/call≈   477.7 s  (aug)
+#   enzyme_naive                  N=256  t/call≈   955.5 s  (lin from N128)
+reactant_full	4	01:30:00
+reactant_full	8	01:30:00
+reactant_full	16	01:30:00
+reactant_full	32	01:30:00
+reactant_full	64	02:00:00
+reactant_full	128	03:00:00
+reactant_full	256	05:00:00
+reactant_after_enzyme	4	01:30:00
+reactant_after_enzyme	8	01:30:00
+reactant_after_enzyme	16	01:30:00
+reactant_after_enzyme	32	02:00:00
+reactant_after_enzyme	64	02:00:00
+reactant_after_enzyme	128	03:30:00
+reactant_after_enzyme	256	05:30:00
+reactant_mincut_off	4	01:30:00
+reactant_mincut_off	8	01:30:00
+reactant_mincut_off	16	01:30:00
+reactant_mincut_off	32	02:00:00
+reactant_mincut_off	64	04:00:00
+reactant_mincut_off	128	06:30:00
+reactant_mincut_off	256	12:00:00
+reactant_periodic	4	01:30:00
+reactant_periodic	8	01:30:00
+reactant_periodic	16	01:30:00
+reactant_periodic	32	03:00:00
+reactant_periodic	64	04:30:00
+reactant_periodic	128	07:30:00
+reactant_periodic	256	13:30:00
+reactant_periodic_mincut_off	4	01:30:00
+reactant_periodic_mincut_off	8	01:30:00
+reactant_periodic_mincut_off	16	01:30:00
+reactant_periodic_mincut_off	32	03:30:00
+reactant_periodic_mincut_off	64	06:00:00
+reactant_periodic_mincut_off	128	11:00:00
+reactant_periodic_mincut_off	256	22:00:00
+reactant_binomial_10	4	01:30:00
+reactant_binomial_10	8	01:30:00
+reactant_binomial_10	16	01:30:00
+reactant_binomial_10	32	02:00:00
+reactant_binomial_10	64	02:30:00
+reactant_binomial_10	128	03:30:00
+reactant_binomial_10	256	06:00:00
+reactant_binomial_log2	4	01:30:00
+reactant_binomial_log2	8	01:30:00
+reactant_binomial_log2	16	01:30:00
+reactant_binomial_log2	32	02:00:00
+reactant_binomial_log2	64	02:30:00
+reactant_binomial_log2	128	03:30:00
+reactant_binomial_log2	256	06:30:00
+enzyme_naive	4	02:00:00
+enzyme_naive	8	02:00:00
+enzyme_naive	16	02:00:00
+enzyme_naive	32	02:00:00
+enzyme_naive	64	02:30:00
+enzyme_naive	128	04:30:00
+enzyme_naive	256	07:00:00
