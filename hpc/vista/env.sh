@@ -40,10 +40,13 @@ case $CH_PROFILE in
         GATE_E2E_TIMEOUT_S=3600
         ;;
     aug2026)   # July/August 2026 environment of the original runs (envs/aug2026)
-        SIF=/work/08955/jlk3675/vista/channelanigans-2026-11-aug2026-cpu.sif
-        IMAGE_REF=ghcr.io/jlk9/channelanigans-artifact:2026-11-aug2026-cpu
-        IMAGE_DIGEST=sha256:3b1e17c37ac9738c546caaa486f47fecca9aea0984e7abae1c5502f9bb24693f
-        IMAGE_COMMIT=348789f8cae8e1dcf6c19b227350840dc3ec4938   # + envs/aug2026/Manifest.toml (see envs/aug2026)
+        # Second build: the first (2026-11-aug2026-cpu, commit 348789f) failed to save
+        # gradient files on Vista (JLD2 mmap under Julia 1.11 on 64 KiB pages); see
+        # bench/common.jl. SIF sha256 11a66cae...0029165.
+        SIF=/work/08955/jlk3675/vista/channelanigans-2026-11-aug2026-cpu-2.sif
+        IMAGE_REF=ghcr.io/jlk9/channelanigans-artifact:2026-11-aug2026-cpu-2
+        IMAGE_DIGEST=sha256:d9a137735986b897d88c22337f3b06b16868b3a19dcbd6c2089bad1c508edcb3
+        IMAGE_COMMIT=d7c03aaa476c88c715b2af701c0627889490225a
         SWEEP=table_aug2026
         # The original table's rows: no enzyme_revolve_log2.
         TABLE_CONFIGS=reactant_full,reactant_after_enzyme,reactant_mincut_off,reactant_periodic,reactant_periodic_mincut_off,reactant_binomial_10,reactant_binomial_log2,enzyme_naive
