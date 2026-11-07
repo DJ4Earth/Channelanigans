@@ -25,6 +25,11 @@ MAIL_TYPE=END,FAIL
 #   JOB_PREFIX     SLURM job-name prefix, so two profiles never see each other's jobs
 #   WALLTIMES_FILE where `report.sh status` writes its walltime predictions
 #   GATE_WALLTIME / GATE_E2E_TIMEOUT_S   gate job limit / its end-to-end test timeout
+#   RUN_JULIA_FLAGS / RUN_XLA_FLAGS     optional: Julia and XLA flags for the drivers;
+#                  unset = the orchestrator's defaults (-O0, multi-threaded Eigen off)
+#   XLA_DUMP       1 = also dump XLA's HLO (--xla_dump_to), as the August job scripts did,
+#                  and keep its buffer-assignment "Total bytes used" lines in each case
+#                  (xla_buffer_assignment.txt; extra information, not the memory metric)
 CH_PROFILE=${CH_PROFILE:-current}
 case $CH_PROFILE in
     current)   # current package versions (Julia 1.12.7, Reactant 0.2.304, ...)
@@ -52,9 +57,17 @@ case $CH_PROFILE in
         TABLE_CONFIGS=reactant_full,reactant_after_enzyme,reactant_mincut_off,reactant_periodic,reactant_periodic_mincut_off,reactant_binomial_10,reactant_binomial_log2,enzyme_naive
         JOB_PREFIX=ch-aug
         WALLTIMES_FILE=walltimes_aug2026.tsv
-        # Enzyme 0.13.198 spends ~36 min compiling the first gradient (seen in August).
+        # Enzyme 0.13.198 spends ~30-36 min compiling the first gradient.
         GATE_WALLTIME=02:30:00
         GATE_E2E_TIMEOUT_S=5400
+        # Runtime flags of the original August job scripts, applied uniformly to every
+        # row (as in the binomial-checkpointing job script; the scripts differed slightly
+        # between rows): Julia's default -O2, XLA's multi-threaded Eigen left on (its
+        # default), multi-output fusion on, and an HLO dump. The dump's "Total bytes used"
+        # is kept as extra information; the table's memory metric is peak RSS, as in August.
+        RUN_JULIA_FLAGS=""
+        RUN_XLA_FLAGS="--xla_backend_extra_options=xla_cpu_use_multi_output_fusion"
+        XLA_DUMP=1
         ;;
     *)
         echo "unknown image profile '$CH_PROFILE' (known: current, aug2026)" >&2
@@ -92,6 +105,29 @@ apptainer_exec() {
         --env "SLURM_JOB_ID=${SLURM_JOB_ID:-},SLURM_JOB_PARTITION=${SLURM_JOB_PARTITION:-}" \
         --env "CHANNELANIGANS_IMAGE_DIGEST=$IMAGE_DIGEST" \
         "$SIF" "$@"
+}
+
+# Orchestrator arguments for the profile's Julia/XLA flags, in the array ORCH_FLAGS
+# (empty for profiles that use the orchestrator's defaults). $1: subdirectory of
+# $SCRATCH_ROOT/_hlo for the XLA HLO dump, used when XLA_DUMP=1.
+orchestrator_flag_args() {
+    ORCH_FLAGS=()
+    [[ -n ${RUN_JULIA_FLAGS+x} ]] && ORCH_FLAGS+=(--julia-flags "$RUN_JULIA_FLAGS")
+    if [[ -n ${RUN_XLA_FLAGS+x} ]]; then
+        local xla=$RUN_XLA_FLAGS
+        [[ ${XLA_DUMP:-0} == 1 ]] && xla="$xla --xla_dump_to=/results/_hlo/$1"
+        ORCH_FLAGS+=(--xla-flags "$xla")
+    fi
+    return 0
+}
+
+# Lines of XLA's buffer assignment with "Total bytes used", one per compiled module,
+# prefixed with the dump file name. $1: HLO dump directory on the host. Depending on the
+# XLA version the line is in *-buffer-assignment.txt or *-buffer-assignment-values.txt
+# (the August job scripts grepped only the former and found nothing), so search both.
+xla_total_bytes() {
+    grep -H "Total bytes used" "$1"/*buffer-assignment*.txt 2>/dev/null | sed "s|^$1/||"
+    return 0
 }
 
 # Lmod's `module` is not safe under `set -u`/`set -e` (it references unset variables,

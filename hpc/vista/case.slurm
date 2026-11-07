@@ -43,14 +43,22 @@ elif [[ -d "$SCR" ]]; then
     echo "moved uncopied scratch attempt $SCR -> $SUP/$(basename "$SCR").scratch.$stamp"
 fi
 
+# The profile's Julia/XLA flags (none for the default profile); a fresh HLO dump dir.
+orchestrator_flag_args "$SWEEP/$CASE"
+HLO=$SCRATCH_ROOT/_hlo/$SWEEP/$CASE
+[[ ${XLA_DUMP:-0} == 1 ]] && { rm -rf "$HLO"; mkdir -p "$HLO"; }
+
 start=$(date -u +%FT%TZ)
 echo "[$start] $CASE on $(hostname), job $SLURM_JOB_ID, orchestrator timeout ${TIMEOUT_S}s"
 apptainer_exec julia /opt/channelanigans/bench/run_cases.jl \
     --configs "$CONFIG" --nsteps "$NSTEPS" --out "/results/$SWEEP" \
-    --timeout "$TIMEOUT_S" --perf "${PERF:-on}" --numactl on --core "$CORE" \
+    --timeout "$TIMEOUT_S" --perf "${PERF:-on}" --numactl on --core "$CORE" "${ORCH_FLAGS[@]}" \
     -- $DRIVER_ARGS
 rc=$?
 end=$(date -u +%FT%TZ)
+
+# XLA's memory figure (buffer assignment), as the August job scripts collected it.
+[[ ${XLA_DUMP:-0} == 1 && -d "$SCR" ]] && xla_total_bytes "$HLO" > "$SCR/xla_buffer_assignment.txt"
 
 mkdir -p "$DST"
 cp -a "$SCR/." "$DST/"
