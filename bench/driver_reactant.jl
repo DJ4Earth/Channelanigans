@@ -37,7 +37,18 @@ const CHECKPOINTING = let c = CFG["checkpointing"]
     error("unknown Reactant checkpointing '$c'")
 end
 
-@info "Reactant config" config=OPTS["config"] nsteps=NSTEPS optimize=OPTIMIZE mincut=MINCUT checkpointing=CHECKPOINTING
+# Diagnostic only: `--first-step-init off` skips the explicit initialize! + update_state!
+# in estimate_tracer_error, i.e. differentiates the program of the original July/August
+# 2026 scripts. The first Reactant step then reads stale state (J differs from CPU by
+# ~1e-4 after 4 steps), so this is for timing comparisons, never for table entries.
+# Accepted by the generic `--key value` parsing in common.jl, so it also works with
+# images whose common.jl predates it. Default: on.
+const FIRST_STEP_INIT = let v = get(OPTS, "first-step-init", "on")
+    v in ("on", "off") || error("--first-step-init must be on or off, got $(repr(v))")
+    v == "on"
+end
+
+@info "Reactant config" config=OPTS["config"] nsteps=NSTEPS optimize=OPTIMIZE mincut=MINCUT checkpointing=CHECKPOINTING first_step_init=FIRST_STEP_INIT
 
 #####
 ##### Differentiated function
@@ -61,8 +72,10 @@ function estimate_tracer_error(model, Tᵢ, Sᵢ, u_wind_stress, v_wind_stress, 
     # first Reactant step reads stale halos/tendencies and diverges from CPU (~1e-4 in J
     # after 4 steps); with it the two backends agree to round-off (see
     # bench/forward_consistency.jl --reactant-init).
-    Oceananigans.initialize!(model)
-    Oceananigans.TimeSteppers.update_state!(model)
+    if FIRST_STEP_INIT
+        Oceananigans.initialize!(model)
+        Oceananigans.TimeSteppers.update_state!(model)
+    end
     loop!(model)
     return zonal_transport(model, Δz)
 end
@@ -122,4 +135,5 @@ run_protocol(;
     extra     = Dict("compile_s" => compile_s,
                      "xla_cost_analysis_flops" => xla_flops,
                      "reactant_options" => Dict("optimize" => string(OPTIMIZE), "mincut" => MINCUT,
-                                                "checkpointing" => string(CHECKPOINTING))))
+                                                "checkpointing" => string(CHECKPOINTING),
+                                                "first_step_init" => FIRST_STEP_INIT)))
