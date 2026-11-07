@@ -1,8 +1,10 @@
 # Walltimes for the August-environment sweep (profile aug2026), seeded from the
 # original July/August 2026 runs before any aug2026 case had run.
-#   walltime = 1.5 x 13 calls x t/call + compile allowance (Reactant 30 min,
-#              Enzyme 60 min: Enzyme 0.13.198 compiles for ~36 min) + 30 min margin,
+#   walltime = 2.25 x 13 calls x t/call + compile allowance (Reactant 30 min,
+#              Enzyme 60 min: Enzyme 0.13.198 compiles for ~30-36 min) + 30 min margin,
 #              rounded up to 30 min, at least 1 h, at most 48 h.
+#   2.25 = 1.5 (per-call times on the Vista gate, N=4, were ~1.5x the August logs':
+#   reactant_full 16.6 vs 11.1 s, enzyme_naive 13.5 vs 9.3 s) x 1.5 safety.
 #   t/call: the August per-call time where the August log has one ("aug"); else the
 #   current-version sweep's per-call time scaled by the August/current ratio at the
 #   largest N both have ("cur*r"); else linear in N from the largest known N.
@@ -67,56 +69,56 @@
 reactant_full	4	01:30:00
 reactant_full	8	01:30:00
 reactant_full	16	01:30:00
-reactant_full	32	01:30:00
-reactant_full	64	02:00:00
-reactant_full	128	03:00:00
-reactant_full	256	05:00:00
+reactant_full	32	02:00:00
+reactant_full	64	02:30:00
+reactant_full	128	04:00:00
+reactant_full	256	07:00:00
 reactant_after_enzyme	4	01:30:00
 reactant_after_enzyme	8	01:30:00
 reactant_after_enzyme	16	01:30:00
 reactant_after_enzyme	32	02:00:00
-reactant_after_enzyme	64	02:00:00
-reactant_after_enzyme	128	03:30:00
-reactant_after_enzyme	256	05:30:00
+reactant_after_enzyme	64	02:30:00
+reactant_after_enzyme	128	04:30:00
+reactant_after_enzyme	256	07:30:00
 reactant_mincut_off	4	01:30:00
 reactant_mincut_off	8	01:30:00
-reactant_mincut_off	16	01:30:00
-reactant_mincut_off	32	02:00:00
-reactant_mincut_off	64	04:00:00
-reactant_mincut_off	128	06:30:00
-reactant_mincut_off	256	12:00:00
+reactant_mincut_off	16	02:00:00
+reactant_mincut_off	32	02:30:00
+reactant_mincut_off	64	05:30:00
+reactant_mincut_off	128	09:30:00
+reactant_mincut_off	256	17:30:00
 reactant_periodic	4	01:30:00
 reactant_periodic	8	01:30:00
 reactant_periodic	16	01:30:00
-reactant_periodic	32	03:00:00
-reactant_periodic	64	04:30:00
-reactant_periodic	128	07:30:00
-reactant_periodic	256	13:30:00
+reactant_periodic	32	03:30:00
+reactant_periodic	64	06:00:00
+reactant_periodic	128	10:30:00
+reactant_periodic	256	20:00:00
 reactant_periodic_mincut_off	4	01:30:00
 reactant_periodic_mincut_off	8	01:30:00
-reactant_periodic_mincut_off	16	01:30:00
-reactant_periodic_mincut_off	32	03:30:00
-reactant_periodic_mincut_off	64	06:00:00
-reactant_periodic_mincut_off	128	11:00:00
-reactant_periodic_mincut_off	256	22:00:00
+reactant_periodic_mincut_off	16	02:00:00
+reactant_periodic_mincut_off	32	05:00:00
+reactant_periodic_mincut_off	64	08:30:00
+reactant_periodic_mincut_off	128	15:30:00
+reactant_periodic_mincut_off	256	32:30:00
 reactant_binomial_10	4	01:30:00
 reactant_binomial_10	8	01:30:00
 reactant_binomial_10	16	01:30:00
 reactant_binomial_10	32	02:00:00
-reactant_binomial_10	64	02:30:00
-reactant_binomial_10	128	03:30:00
-reactant_binomial_10	256	06:00:00
+reactant_binomial_10	64	03:00:00
+reactant_binomial_10	128	04:30:00
+reactant_binomial_10	256	08:00:00
 reactant_binomial_log2	4	01:30:00
 reactant_binomial_log2	8	01:30:00
 reactant_binomial_log2	16	01:30:00
 reactant_binomial_log2	32	02:00:00
-reactant_binomial_log2	64	02:30:00
-reactant_binomial_log2	128	03:30:00
-reactant_binomial_log2	256	06:30:00
+reactant_binomial_log2	64	03:00:00
+reactant_binomial_log2	128	05:00:00
+reactant_binomial_log2	256	09:00:00
 enzyme_naive	4	02:00:00
 enzyme_naive	8	02:00:00
 enzyme_naive	16	02:00:00
-enzyme_naive	32	02:00:00
-enzyme_naive	64	02:30:00
-enzyme_naive	128	04:30:00
-enzyme_naive	256	07:00:00
+enzyme_naive	32	02:30:00
+enzyme_naive	64	03:00:00
+enzyme_naive	128	05:30:00
+enzyme_naive	256	09:30:00
