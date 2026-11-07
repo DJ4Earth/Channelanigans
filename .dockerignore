@@ -5,5 +5,8 @@ results*
 evidence
 evidence.tar.gz
 Manifest.toml
+Manifest_*.toml
+HANDOFF_*.md
+data
 CLAUDE.md
 .DS_Store

@@ -3,6 +3,12 @@
 # Build (from the repo root):
 #   docker build --build-arg GIT_COMMIT=$(git rev-parse HEAD) -t channelanigans-artifact .
 #
+# Build the July/August 2026 environment of the original manuscript runs instead
+# (Julia 1.11.9 + the exact Manifest in envs/aug2026/):
+#   docker build --build-arg GIT_COMMIT=$(git rev-parse HEAD) \
+#       --build-arg JULIA_IMAGE=julia:1.11.9@sha256:7a4684d881153db5d1a93e2971ae56158c45e1d4971aa8dffb4e8b19cb4f7302 \
+#       --build-arg ENV_DIR=envs/aug2026 -t channelanigans-artifact:aug2026 .
+#
 # Run (outputs land in ./results on the host):
 #   docker run --rm -v "$PWD/results:/work/results" channelanigans-artifact \
 #       julia /opt/channelanigans/bench/run_cases.jl --nsteps 4,8
@@ -12,10 +18,14 @@
 # This layout also works under Apptainer/Singularity (read-only image).
 
 # Official Julia image (Debian 13 "trixie"), pinned by multi-arch index digest.
-FROM julia:1.12.7@sha256:a1fbd9d099a0517bdb70e7471955f09dc92beb822e7a5a74938f7ec8d5682693
+ARG JULIA_IMAGE=julia:1.12.7@sha256:a1fbd9d099a0517bdb70e7471955f09dc92beb822e7a5a74938f7ec8d5682693
+FROM ${JULIA_IMAGE}
 
 ARG TARGETARCH
 ARG GIT_COMMIT=unknown
+# Directory holding the Julia environment: "." = the repo's Project.toml (resolved
+# from its exact [compat] pins); envs/<name> = a Project.toml + Manifest.toml pair.
+ARG ENV_DIR=.
 
 # numactl: pin the benchmark to one core; procps: `ps` (RSS sampler fallback);
 # linux-perf: FLOP counting on hosts that expose a PMU (Vista Grace nodes).
@@ -37,9 +47,12 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then \
 
 WORKDIR /opt/channelanigans
 
-# 1. Dependencies (cached layer): resolve from Project.toml's exact [compat] pins,
-#    force Reactant's CPU build, download and precompile everything.
-COPY Project.toml ./
+# 1. Dependencies (cached layer): force Reactant's CPU build, download and precompile
+#    everything. Without a Manifest, instantiate resolves from Project.toml's exact
+#    [compat] pins; with one (ENV_DIR=envs/...), it installs exactly what the Manifest
+#    records and resolves nothing. `Manifest.tom[l]` makes the Manifest optional (the
+#    repo root's Manifest.toml is excluded by .dockerignore).
+COPY ${ENV_DIR}/Project.toml ${ENV_DIR}/Manifest.tom[l] ./
 COPY docker/LocalPreferences.toml ./LocalPreferences.toml
 RUN export JULIA_CPU_TARGET="$(cat /opt/julia_cpu_target)" \
  && julia -e 'using Pkg; Pkg.instantiate(); Pkg.precompile(); Pkg.status()'
@@ -60,7 +73,7 @@ RUN export JULIA_CPU_TARGET="$(cat /opt/julia_cpu_target)" \
 
 # 4. Provenance: exact resolved versions (the image's Manifest.toml is the frozen set).
 RUN { echo "git_commit: ${GIT_COMMIT}"; echo "built: $(date -u +%Y-%m-%dT%H:%M:%SZ)"; \
-      echo "arch: ${TARGETARCH}  JULIA_CPU_TARGET: $(cat /opt/julia_cpu_target)"; echo; \
+      echo "arch: ${TARGETARCH}  JULIA_CPU_TARGET: $(cat /opt/julia_cpu_target)  env: ${ENV_DIR}"; echo; \
       julia -e 'using InteractiveUtils; versioninfo()'; echo; \
       julia -e 'using Pkg; Pkg.status(mode=Pkg.PKGMODE_MANIFEST)'; } > /opt/channelanigans/BUILD_INFO.txt 2>&1 \
  && chmod -R a+rX /opt/julia_depot /opt/channelanigans
