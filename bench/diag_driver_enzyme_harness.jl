@@ -17,6 +17,11 @@
 #                          forcing and the clock; velocities, free surface, tendencies and
 #                          the accumulated shadows carry over). The per-call objectives
 #                          then differ, so run_protocol warns; that is expected here.
+#   --zero-ics on|off      differentiate from T = 0, S = 0 instead of the stratified T
+#                          (+ seeded noise) and S = 35. The August Enzyme-only script did
+#                          this by accident: with its spinup call commented out,
+#                          `set!(Tᵢ, model.tracers.T)` / `set!(Sᵢ, model.tracers.S)` copied
+#                          the never-set (zero) tracers into the initial conditions.
 #
 # Every gradient call is also wrapped in @timed and logged as a line
 #   harness call <k>: <s> s, gc <s> s, <GiB> GiB allocated, <n> allocations
@@ -33,6 +38,7 @@ onoff(key) = let v = get(OPTS, key, "off")
 end
 const LOAD_CUDA   = onoff("load-cuda")
 const REUSE_MODEL = onoff("reuse-model")
+const ZERO_ICS    = onoff("zero-ics")
 
 using Oceananigans
 LOAD_CUDA && @eval using CUDA
@@ -47,7 +53,7 @@ const NSTEPS = OPTS["nsteps"]
 const CHECKPOINT_MODE = CFG["checkpointing"]
 CHECKPOINT_MODE == "none" || error("diag_driver_enzyme_harness.jl supports only checkpointing = \"none\" (enzyme_naive)")
 
-@info "Enzyme harness diagnostic" config=OPTS["config"] nsteps=NSTEPS load_cuda=LOAD_CUDA reuse_model=REUSE_MODEL cuda_loaded=isdefined(Main, :CUDA)
+@info "Enzyme harness diagnostic" config=OPTS["config"] nsteps=NSTEPS load_cuda=LOAD_CUDA reuse_model=REUSE_MODEL zero_ics=ZERO_ICS cuda_loaded=isdefined(Main, :CUDA)
 
 #####
 ##### Differentiated function (as in bench/driver_enzyme.jl, checkpointing = "none")
@@ -87,6 +93,10 @@ end
 
 fresh() = begin
     pr = build_problem(CPU(); seed = OPTS["seed"])
+    if ZERO_ICS
+        set!(pr.Tᵢ, 0)
+        set!(pr.Sᵢ, 0)
+    end
     sh = make_shadows(pr, Enzyme.make_zero)
     (pr, sh)
 end
@@ -114,4 +124,5 @@ run_protocol(;
     extra     = Dict("enzyme_options" => Dict("checkpointing" => CHECKPOINT_MODE, "snaps" => nothing,
                                               "looseTypeAnalysis" => true, "strictAliasing" => false),
                      "harness_diagnostic" => Dict("load_cuda" => LOAD_CUDA, "reuse_model" => REUSE_MODEL,
+                                                  "zero_ics" => ZERO_ICS,
                                                   "cuda_loaded" => isdefined(Main, :CUDA))))

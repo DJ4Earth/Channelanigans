@@ -3,16 +3,23 @@
 # same gradient 8-18% slower than bench/driver_enzyme.jl, with the same Julia 1.11.9 and
 # Manifest (envs/aug2026) on the same nodes?
 #
-# Runs enzyme_naive at N=$NSTEPS (default 64) in the aug2026 image, on one node, as four
-# variants, one after the other:
-#   driver   bench/diag_driver_enzyme_harness.jl with both switches off (= our driver)
-#   cuda     ... --load-cuda on    (`using CUDA`, as the August script does)
-#   reuse    ... --reuse-model on  (one model + shadows for all calls, as August)
-#   august   the August script itself, run inside the image like its August job script
-#            (numactl -C 0, perf stat with FIFO control, JULIA_NUM_THREADS=1)
-# driver/cuda/reuse: bench/run_cases.jl with the sweep's flags, 1 warmup + $REPEATS
-# measured calls, perf on (FLOPs). The repo's diag driver is mounted over the image's
-# bench/driver_enzyme.jl.
+# Runs enzyme_naive at N=$NSTEPS (default 64) in the aug2026 image, on one node, as
+# variants run one after the other:
+#   driver      bench/diag_driver_enzyme_harness.jl with all switches off (= our driver)
+#   cuda        ... --load-cuda on    (`using CUDA`, as the August script does)
+#   reuse       ... --reuse-model on  (one model + shadows for all calls, as August)
+#   zero_ics    ... --zero-ics on     (T = S = 0 initial state, as the August script
+#               had by accident: its commented-out spinup left `set!(Tᵢ, model.tracers.T)`
+#               and `set!(Sᵢ, model.tracers.S)` copying never-set, zero tracers)
+#   august      the August script itself, run inside the image like its August job script
+#               (numactl -C 0, perf stat with FIFO control, JULIA_NUM_THREADS=1)
+#   august_ics  the same, with those two set! lines commented out, so it differentiates
+#               the stratified initial state (T profile + noise, S = 35) like every row
+# Default: driver zero_ics august august_ics (the first run, job 1129118, used
+# driver cuda reuse august; rerunning a variant moves its old results aside).
+# driver/cuda/reuse/zero_ics: bench/run_cases.jl with the sweep's flags, 1 warmup +
+# $REPEATS measured calls, perf on (FLOPs). The repo's diag driver is mounted over the
+# image's bench/driver_enzyme.jl.
 # august: a copy of $AUG_SCRIPT with three edits, needed to run in the image:
 #   `using BenchmarkTools` commented out (not in the image's project);
 #   `@btime f(...)` -> three `@time f(...)` calls, each after GC.gc() (for a call this
@@ -38,7 +45,7 @@ export CH_PROFILE=aug2026
 source "${HPC_DIR:-$SLURM_SUBMIT_DIR/hpc/vista}/env.sh"
 load_apptainer
 NSTEPS=${NSTEPS:-64}
-VARIANTS=${VARIANTS:-driver cuda reuse august}
+VARIANTS=${VARIANTS:-driver zero_ics august august_ics}
 REPEATS=${REPEATS:-3}
 TIMEOUT_S=${TIMEOUT_S:-4500}     # per variant: ~35 min Enzyme compile + 4-6 calls of ~2.5-3 min
 AUG_SCRIPT=${AUG_SCRIPT:-/work/08955/jlk3675/vista/cpu-only/Channelanigans/scripts/abernathey_channel_no_reactant.jl}
@@ -77,10 +84,11 @@ for variant in $VARIANTS; do
     echo; echo "===== $variant  [$(date -u +%FT%TZ)]"
     SWEEP=diag_enzyme_harness/$variant
     case $variant in
-        driver|cuda|reuse)
-            cuda=off; reuse=off
+        driver|cuda|reuse|zero_ics)
+            cuda=off; reuse=off; zero=off
             [[ $variant == cuda ]] && cuda=on
             [[ $variant == reuse ]] && reuse=on
+            [[ $variant == zero_ics ]] && zero=on
             CASE=enzyme_naive/$(printf 'N%04d' "$NSTEPS")
             fresh_dirs "$SWEEP"
             orchestrator_flag_args "$SWEEP/$CASE"
@@ -88,19 +96,19 @@ for variant in $VARIANTS; do
                 julia /opt/channelanigans/bench/run_cases.jl \
                     --configs enzyme_naive --nsteps "$NSTEPS" --out "/results/$SWEEP" \
                     --timeout "$TIMEOUT_S" --perf on --numactl on --core "$CORE" "${ORCH_FLAGS[@]}" \
-                    -- $DRIVER_ARGS --repeats "$REPEATS" --load-cuda "$cuda" --reuse-model "$reuse"
+                    -- $DRIVER_ARGS --repeats "$REPEATS" --load-cuda "$cuda" --reuse-model "$reuse" --zero-ics "$zero"
             rc=$?; (( rc )) && rc_all=$rc
             SCR=$SCRATCH_ROOT/$SWEEP; DST=$WORK_ROOT/$SWEEP
             cp -a "$SCR/." "$DST/" 2>/dev/null
             # Summary
-            grep -h -o 'cuda_loaded = [a-z]*' "$DST/$CASE/log.txt" 2>/dev/null | head -1
+            grep -h -o -E '(cuda_loaded|zero_ics) = [a-z]*' "$DST/$CASE/log.txt" 2>/dev/null | head -2
             grep -h -o 'harness call [0-9]*: .*' "$DST/$CASE/log.txt" 2>/dev/null
             grep -hE '"(status|reason)"' "$DST/$CASE/status.json" 2>/dev/null
             if [[ -f $DST/$CASE/result.json ]]; then
                 echo "result: $(grep -m1 -o '"runtime_s": [0-9.e+-]*' "$DST/$CASE/result.json")   $(grep -m1 -o '"flops_per_call": [0-9.e+-]*' "$DST/$CASE/result.json")   $(grep -m1 -o '"peak_rss_bytes": [0-9.e+-]*' "$DST/$CASE/result.json")"
             fi
             ;;
-        august)
+        august|august_ics)
             [[ -f $AUG_SCRIPT ]] || { echo "AUG_SCRIPT not found: $AUG_SCRIPT" >&2; rc_all=2; continue; }
             if grep -qE '^[[:space:]]*@ad_checkpoint' "$AUG_SCRIPT"; then
                 echo "$AUG_SCRIPT has an active @ad_checkpoint line; the August runs used a plain for loop" >&2
@@ -119,6 +127,14 @@ for variant in $VARIANTS; do
                 -e 's/^\([[:space:]]*\)@btime \(.*\)$/\1for _k in 1:3; GC.gc(); GC.gc(); print("august-script timed call $_k: "); @time \2; end/' \
                 -e 's/jldsave(filename;/jldsave(filename, false, IOStream;/' \
                 "$AUG_SCRIPT" > "$WD/august_script.jl"
+            if [[ $variant == august_ics ]]; then
+                # Keep the stratified initial state: comment out the two lines that copy
+                # the never-set (zero) model tracers into Tᵢ and Sᵢ.
+                sed -i -e 's/^\([[:space:]]*\)\(set!(\([TS]\)ᵢ, model\.tracers\.\3)\)/\1# \2   # diag august_ics: keep the stratified initial state/' \
+                    "$WD/august_script.jl"
+                nics=$(grep -c 'diag august_ics' "$WD/august_script.jl")
+                (( nics == 2 )) || { echo "august_ics: expected to comment out 2 set! lines, did $nics" >&2; rc_all=2; continue; }
+            fi
             echo "edits to the August script:"
             diff "$WD/august_original.jl" "$WD/august_script.jl"
             # As the August job script: JULIA_NUM_THREADS=1, its XLA_FLAGS (unused: no
@@ -145,5 +161,5 @@ for variant in $VARIANTS; do
     esac
 done
 echo
-echo "August script today (your rerun), N=8 17.40 s, N=64 171.06 s; aug2026 sweep (our driver) N=8 16.0 s, N=64 140.6 s"
+echo "N=64 so far: August script, Vista setup today 171.06 s; job 1129118 (one node): driver 139.7 s, cuda 139.2 s, reuse 138.0 s, august 152.0 s"
 exit $rc_all
