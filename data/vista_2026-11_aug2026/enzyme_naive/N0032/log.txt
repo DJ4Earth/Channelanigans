@@ -1,0 +1,51 @@
+Events disabled
+warning: binary operator is integer and assumed constant:   %96 = add i64 %95, %84, !dbg !255
+warning: binary operator is integer and assumed constant:   %95 = add nuw nsw i64 %94, 1, !dbg !252
+warning: binary operator is integer and constant:   %94 = lshr exact i64 %93, 3, !dbg !252
+warning: binary operator is integer and assumed constant:   %93 = sub i64 %91, %92, !dbg !252
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+┌ Info: Enzyme config
+│   config = "enzyme_naive"
+│   nsteps = 32
+│   checkpointing = "none"
+└   snaps = nothing
+[ Info: Reference call (warmup 1/1)
+[ Info: measured call: wall 2066.443 s, peak RSS 61.178 GiB (delta 59.279 GiB) [linux_vmhwm]
+[ Info: saved gradients to /results/table_aug2026/enzyme_naive/N0032/gradients.jld2
+[ Info: Measuring 12 call(s) (last warmup took 2066.44 s)
+[ Info: measured call: wall 67.991 s, peak RSS 61.239 GiB (delta 46.549 GiB) [linux_vmhwm]
+[ Info: measured call: wall 67.209 s, peak RSS 61.181 GiB (delta 46.490 GiB) [linux_vmhwm]
+[ Info: measured call: wall 67.267 s, peak RSS 61.170 GiB (delta 46.480 GiB) [linux_vmhwm]
+[ Info: measured call: wall 67.801 s, peak RSS 61.167 GiB (delta 46.430 GiB) [linux_vmhwm]
+[ Info: measured call: wall 67.379 s, peak RSS 61.230 GiB (delta 46.507 GiB) [linux_vmhwm]
+[ Info: measured call: wall 67.551 s, peak RSS 61.238 GiB (delta 46.513 GiB) [linux_vmhwm]
+[ Info: measured call: wall 67.755 s, peak RSS 61.159 GiB (delta 46.427 GiB) [linux_vmhwm]
+[ Info: measured call: wall 67.704 s, peak RSS 61.241 GiB (delta 46.516 GiB) [linux_vmhwm]
+[ Info: measured call: wall 67.719 s, peak RSS 61.221 GiB (delta 46.488 GiB) [linux_vmhwm]
+[ Info: measured call: wall 68.019 s, peak RSS 61.147 GiB (delta 46.411 GiB) [linux_vmhwm]
+[ Info: measured call: wall 67.706 s, peak RSS 61.248 GiB (delta 46.513 GiB) [linux_vmhwm]
+[ Info: measured call: wall 67.610 s, peak RSS 61.229 GiB (delta 46.493 GiB) [linux_vmhwm]
+[ Info: [enzyme_naive N=32] runtime 67.643 ± 0.163 s (95% CI, n=12), peak RSS 61.206 GiB, objective 6.776880752805e-01 → /results/table_aug2026/enzyme_naive/N0032/result.json

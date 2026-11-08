@@ -1,0 +1,4 @@
+warning: binary operator is integer and assumed constant:   %96 = add i64 %95, %84, !dbg !255
+warning: binary operator is integer and assumed constant:   %95 = add nuw nsw i64 %94, 1, !dbg !252
+warning: binary operator is integer and constant:   %94 = lshr exact i64 %93, 3, !dbg !252
+warning: binary operator is integer and assumed constant:   %93 = sub i64 %91, %92, !dbg !252

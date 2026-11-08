@@ -1,0 +1,17 @@
+{
+  "command": "`numactl -C 0 /usr/local/julia/bin/julia -C native -J/usr/local/julia/lib/julia/sys.so -g1 --project=/opt/channelanigans /opt/channelanigans/bench/driver_enzyme.jl --config enzyme_naive --nsteps 128 --out /results/diag_memory/default --configs-file /opt/channelanigans/bench/configs.toml --save-gradients`",
+  "config": "enzyme_naive",
+  "elapsed_s": 6697.820098876953,
+  "exitcode": 0,
+  "finished_at": "2026-11-07T14:48:01.612",
+  "julia_flags": "",
+  "nsteps": 128,
+  "numactl": true,
+  "perf": null,
+  "reason": "",
+  "status": "ok",
+  "termsignal": 0,
+  "threads": 1,
+  "timeout_s": 9000.0,
+  "xla_flags": "--xla_cpu_multi_thread_eigen=false --xla_backend_extra_options=xla_cpu_use_multi_output_fusion"
+}

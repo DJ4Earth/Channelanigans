@@ -1,0 +1,27 @@
+{
+  "command": "`numactl -C 0 perf stat -x, -I 100 -o /results/table_aug2026/reactant_binomial_log2/N0128/perf.csv --delay=-1 -e r80C0,r80C1 --control fifo:/tmp/jl_falUnqfYrQ.perf_ctl,/tmp/jl_96B85kJa32.perf_ack -- /usr/local/julia/bin/julia -C native -J/usr/local/julia/lib/julia/sys.so -g1 --project=/opt/channelanigans /opt/channelanigans/bench/driver_reactant.jl --config reactant_binomial_log2 --nsteps 128 --out /results/table_aug2026 --configs-file /opt/channelanigans/bench/configs.toml --save-gradients`",
+  "config": "reactant_binomial_log2",
+  "elapsed_s": 6785.6455619335175,
+  "exitcode": 0,
+  "finished_at": "2026-11-07T12:53:41.223",
+  "julia_flags": "",
+  "nsteps": 128,
+  "numactl": true,
+  "perf": {
+    "attribution": "ok",
+    "events": "r80C0,r80C1",
+    "interval_ms": 100,
+    "n_measured": 12,
+    "n_windows": 12,
+    "totals_all_windows": {
+      "r80C0": 0,
+      "r80C1": 17513800287834
+    }
+  },
+  "reason": "",
+  "status": "ok",
+  "termsignal": 0,
+  "threads": 1,
+  "timeout_s": 16200.0,
+  "xla_flags": "--xla_backend_extra_options=xla_cpu_use_multi_output_fusion --xla_dump_to=/results/_hlo/table_aug2026/reactant_binomial_log2/N0128"
+}

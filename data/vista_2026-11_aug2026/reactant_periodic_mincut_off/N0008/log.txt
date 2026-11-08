@@ -1,0 +1,70 @@
+Events disabled
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1794035814.540961 2965774 dump.cc:515] HloModule dump enabled with path prefix: , suffix: before_optimizations
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+┌ Info: Reactant config
+│   config = "reactant_periodic_mincut_off"
+│   nsteps = 8
+│   optimize = true
+│   mincut = false
+└   checkpointing = ReactantCore.Periodic(2)
+┌ Info: Built HydrostaticFreeSurfaceModel{ReactantState, ImmersedBoundaryGrid}(time = 0 seconds, iteration = ConcretePJRTNumber(0))
+│ ├── grid: 80×160×32 ImmersedBoundaryGrid{Float64, Periodic, Bounded, Bounded} on ReactantState with 4×4×4 halo
+│ ├── timestepper: QuasiAdamsBashforth2TimeStepper
+│ ├── tracers: (T, S, e)
+│ ├── closure: Tuple with 3 closures:
+│ │   ├── HorizontalScalarDiffusivity{ExplicitTimeDiscretization}(ν=500.0, κ=(T=5.0e-5, S=5.0e-5, e=5.0e-5))
+│ │   ├── VerticalScalarDiffusivity{ExplicitTimeDiscretization}(ν=0.003, κ=(T=80×160×32 Field{Center, Center, Center} on ImmersedBoundaryGrid on ReactantState, S=80×160×32 Field{Center, Center, Center} on ImmersedBoundaryGrid on ReactantState, e=80×160×32 Field{Center, Center, Center} on ImmersedBoundaryGrid on ReactantState))
+│ │   └── ScalarBiharmonicDiffusivity{HorizontalFormulation}(ν=1.0e11, κ=(T=0.0, S=0.0, e=0.0))
+│ ├── buoyancy: SeawaterBuoyancy with g=9.80665 and LinearEquationOfState(thermal_expansion=0.000167, haline_contraction=0.00078) with ĝ = NegativeZDirection()
+│ ├── free surface: SplitExplicitFreeSurface with gravitational acceleration 9.80665 m s⁻²
+│ │   └── substepping: FixedSubstepNumber(7)
+│ ├── advection scheme: 
+│ │   ├── momentum: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ │   ├── T: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ │   ├── S: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ │   └── e: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ ├── vertical_coordinate: ZCoordinate
+└ └── coriolis: BetaPlane{Oceananigans.Advection.EnstrophyConserving{Float64}, Float64}
+[ Info: Compiling...
+[ Info: compile time 1083.27 s
+[ Info: Reference call (warmup 1/1)
+[ Info: measured call: wall 39.592 s, peak RSS 32.081 GiB (delta 26.488 GiB) [linux_vmhwm]
+[ Info: saved gradients to /results/table_aug2026/reactant_periodic_mincut_off/N0008/gradients.jld2
+[ Info: Measuring 12 call(s) (last warmup took 39.59 s)
+[ Info: measured call: wall 32.389 s, peak RSS 32.017 GiB (delta 26.314 GiB) [linux_vmhwm]
+[ Info: measured call: wall 32.969 s, peak RSS 32.088 GiB (delta 26.309 GiB) [linux_vmhwm]
+[ Info: measured call: wall 32.326 s, peak RSS 32.161 GiB (delta 26.309 GiB) [linux_vmhwm]
+[ Info: measured call: wall 32.118 s, peak RSS 32.245 GiB (delta 26.313 GiB) [linux_vmhwm]
+[ Info: measured call: wall 32.817 s, peak RSS 32.327 GiB (delta 26.297 GiB) [linux_vmhwm]
+[ Info: measured call: wall 32.642 s, peak RSS 32.439 GiB (delta 26.297 GiB) [linux_vmhwm]
+[ Info: measured call: wall 32.830 s, peak RSS 32.549 GiB (delta 26.297 GiB) [linux_vmhwm]
+[ Info: measured call: wall 32.418 s, peak RSS 32.675 GiB (delta 26.297 GiB) [linux_vmhwm]
+[ Info: measured call: wall 33.124 s, peak RSS 32.825 GiB (delta 26.313 GiB) [linux_vmhwm]
+[ Info: measured call: wall 32.630 s, peak RSS 32.966 GiB (delta 26.309 GiB) [linux_vmhwm]
+[ Info: measured call: wall 32.586 s, peak RSS 33.116 GiB (delta 26.309 GiB) [linux_vmhwm]
+[ Info: measured call: wall 32.773 s, peak RSS 33.267 GiB (delta 26.313 GiB) [linux_vmhwm]
+[ Info: [reactant_periodic_mincut_off N=8] runtime 32.635 ± 0.183 s (95% CI, n=12), peak RSS 32.556 GiB, objective 1.433123928040e-01 → /results/table_aug2026/reactant_periodic_mincut_off/N0008/result.json

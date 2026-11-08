@@ -1,0 +1,70 @@
+Events disabled
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1794033556.181599 3278633 dump.cc:515] HloModule dump enabled with path prefix: , suffix: before_optimizations
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+┌ Info: Reactant config
+│   config = "reactant_mincut_off"
+│   nsteps = 64
+│   optimize = true
+│   mincut = false
+└   checkpointing = false
+┌ Info: Built HydrostaticFreeSurfaceModel{ReactantState, ImmersedBoundaryGrid}(time = 0 seconds, iteration = ConcretePJRTNumber(0))
+│ ├── grid: 80×160×32 ImmersedBoundaryGrid{Float64, Periodic, Bounded, Bounded} on ReactantState with 4×4×4 halo
+│ ├── timestepper: QuasiAdamsBashforth2TimeStepper
+│ ├── tracers: (T, S, e)
+│ ├── closure: Tuple with 3 closures:
+│ │   ├── HorizontalScalarDiffusivity{ExplicitTimeDiscretization}(ν=500.0, κ=(T=5.0e-5, S=5.0e-5, e=5.0e-5))
+│ │   ├── VerticalScalarDiffusivity{ExplicitTimeDiscretization}(ν=0.003, κ=(T=80×160×32 Field{Center, Center, Center} on ImmersedBoundaryGrid on ReactantState, S=80×160×32 Field{Center, Center, Center} on ImmersedBoundaryGrid on ReactantState, e=80×160×32 Field{Center, Center, Center} on ImmersedBoundaryGrid on ReactantState))
+│ │   └── ScalarBiharmonicDiffusivity{HorizontalFormulation}(ν=1.0e11, κ=(T=0.0, S=0.0, e=0.0))
+│ ├── buoyancy: SeawaterBuoyancy with g=9.80665 and LinearEquationOfState(thermal_expansion=0.000167, haline_contraction=0.00078) with ĝ = NegativeZDirection()
+│ ├── free surface: SplitExplicitFreeSurface with gravitational acceleration 9.80665 m s⁻²
+│ │   └── substepping: FixedSubstepNumber(7)
+│ ├── advection scheme: 
+│ │   ├── momentum: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ │   ├── T: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ │   ├── S: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ │   └── e: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ ├── vertical_coordinate: ZCoordinate
+└ └── coriolis: BetaPlane{Oceananigans.Advection.EnstrophyConserving{Float64}, Float64}
+[ Info: Compiling...
+[ Info: compile time 492.36 s
+[ Info: Reference call (warmup 1/1)
+[ Info: measured call: wall 461.189 s, peak RSS 198.365 GiB (delta 193.307 GiB) [linux_vmhwm]
+[ Info: saved gradients to /results/table_aug2026/reactant_mincut_off/N0064/gradients.jld2
+[ Info: Measuring 12 call(s) (last warmup took 461.19 s)
+[ Info: measured call: wall 423.503 s, peak RSS 198.278 GiB (delta 193.087 GiB) [linux_vmhwm]
+[ Info: measured call: wall 457.007 s, peak RSS 198.368 GiB (delta 193.078 GiB) [linux_vmhwm]
+[ Info: measured call: wall 453.749 s, peak RSS 198.474 GiB (delta 193.091 GiB) [linux_vmhwm]
+[ Info: measured call: wall 456.747 s, peak RSS 198.576 GiB (delta 193.077 GiB) [linux_vmhwm]
+[ Info: measured call: wall 448.929 s, peak RSS 198.703 GiB (delta 193.078 GiB) [linux_vmhwm]
+[ Info: measured call: wall 454.120 s, peak RSS 198.835 GiB (delta 193.078 GiB) [linux_vmhwm]
+[ Info: measured call: wall 459.551 s, peak RSS 198.989 GiB (delta 193.091 GiB) [linux_vmhwm]
+[ Info: measured call: wall 456.455 s, peak RSS 199.139 GiB (delta 193.090 GiB) [linux_vmhwm]
+[ Info: measured call: wall 449.186 s, peak RSS 199.274 GiB (delta 193.091 GiB) [linux_vmhwm]
+[ Info: measured call: wall 455.038 s, peak RSS 199.414 GiB (delta 193.078 GiB) [linux_vmhwm]
+[ Info: measured call: wall 455.977 s, peak RSS 199.570 GiB (delta 193.091 GiB) [linux_vmhwm]
+[ Info: measured call: wall 459.559 s, peak RSS 199.716 GiB (delta 193.078 GiB) [linux_vmhwm]
+[ Info: [reactant_mincut_off N=64] runtime 452.485 ± 6.180 s (95% CI, n=12), peak RSS 198.945 GiB, objective 1.303767004348e+00 → /results/table_aug2026/reactant_mincut_off/N0064/result.json

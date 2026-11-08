@@ -1,0 +1,9 @@
+{
+  "slurm_job_id": "1128458",
+  "node": "i615-002.vista.tacc.utexas.edu",
+  "source": "diag_memory/default (hpc/vista/diag_memory.slurm), copied into table_aug2026",
+  "perf_mode": "off",
+  "image_profile": "aug2026",
+  "image_digest": "sha256:d9a137735986b897d88c22337f3b06b16868b3a19dcbd6c2089bad1c508edcb3",
+  "note": "Same image, driver, Julia flags and protocol as the sweep; perf off (no FLOPs); orchestrator-default XLA_FLAGS (unused by native Enzyme). Sweep attempts ran out of memory: the case needs ~221 GiB with 0.4 GiB to spare on a 237 GiB gg node."
+}

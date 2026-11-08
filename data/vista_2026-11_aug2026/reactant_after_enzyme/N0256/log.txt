@@ -1,0 +1,70 @@
+Events disabled
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1794033554.716126  295131 dump.cc:515] HloModule dump enabled with path prefix: , suffix: before_optimizations
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+┌ Info: Reactant config
+│   config = "reactant_after_enzyme"
+│   nsteps = 256
+│   optimize = :after_enzyme
+│   mincut = true
+└   checkpointing = false
+┌ Info: Built HydrostaticFreeSurfaceModel{ReactantState, ImmersedBoundaryGrid}(time = 0 seconds, iteration = ConcretePJRTNumber(0))
+│ ├── grid: 80×160×32 ImmersedBoundaryGrid{Float64, Periodic, Bounded, Bounded} on ReactantState with 4×4×4 halo
+│ ├── timestepper: QuasiAdamsBashforth2TimeStepper
+│ ├── tracers: (T, S, e)
+│ ├── closure: Tuple with 3 closures:
+│ │   ├── HorizontalScalarDiffusivity{ExplicitTimeDiscretization}(ν=500.0, κ=(T=5.0e-5, S=5.0e-5, e=5.0e-5))
+│ │   ├── VerticalScalarDiffusivity{ExplicitTimeDiscretization}(ν=0.003, κ=(T=80×160×32 Field{Center, Center, Center} on ImmersedBoundaryGrid on ReactantState, S=80×160×32 Field{Center, Center, Center} on ImmersedBoundaryGrid on ReactantState, e=80×160×32 Field{Center, Center, Center} on ImmersedBoundaryGrid on ReactantState))
+│ │   └── ScalarBiharmonicDiffusivity{HorizontalFormulation}(ν=1.0e11, κ=(T=0.0, S=0.0, e=0.0))
+│ ├── buoyancy: SeawaterBuoyancy with g=9.80665 and LinearEquationOfState(thermal_expansion=0.000167, haline_contraction=0.00078) with ĝ = NegativeZDirection()
+│ ├── free surface: SplitExplicitFreeSurface with gravitational acceleration 9.80665 m s⁻²
+│ │   └── substepping: FixedSubstepNumber(7)
+│ ├── advection scheme: 
+│ │   ├── momentum: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ │   ├── T: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ │   ├── S: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ │   └── e: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ ├── vertical_coordinate: ZCoordinate
+└ └── coriolis: BetaPlane{Oceananigans.Advection.EnstrophyConserving{Float64}, Float64}
+[ Info: Compiling...
+[ Info: compile time 487.91 s
+[ Info: Reference call (warmup 1/1)
+[ Info: measured call: wall 791.655 s, peak RSS 39.558 GiB (delta 34.488 GiB) [linux_vmhwm]
+[ Info: saved gradients to /results/table_aug2026/reactant_after_enzyme/N0256/gradients.jld2
+[ Info: Measuring 12 call(s) (last warmup took 791.65 s)
+[ Info: measured call: wall 784.644 s, peak RSS 39.485 GiB (delta 34.286 GiB) [linux_vmhwm]
+[ Info: measured call: wall 786.483 s, peak RSS 39.585 GiB (delta 34.290 GiB) [linux_vmhwm]
+[ Info: measured call: wall 785.921 s, peak RSS 39.694 GiB (delta 34.289 GiB) [linux_vmhwm]
+[ Info: measured call: wall 786.028 s, peak RSS 39.800 GiB (delta 34.290 GiB) [linux_vmhwm]
+[ Info: measured call: wall 786.659 s, peak RSS 39.919 GiB (delta 34.290 GiB) [linux_vmhwm]
+[ Info: measured call: wall 785.783 s, peak RSS 40.050 GiB (delta 34.289 GiB) [linux_vmhwm]
+[ Info: measured call: wall 785.889 s, peak RSS 40.196 GiB (delta 34.289 GiB) [linux_vmhwm]
+[ Info: measured call: wall 786.691 s, peak RSS 40.342 GiB (delta 34.277 GiB) [linux_vmhwm]
+[ Info: measured call: wall 786.704 s, peak RSS 40.495 GiB (delta 34.290 GiB) [linux_vmhwm]
+[ Info: measured call: wall 786.307 s, peak RSS 40.643 GiB (delta 34.290 GiB) [linux_vmhwm]
+[ Info: measured call: wall 787.039 s, peak RSS 40.778 GiB (delta 34.276 GiB) [linux_vmhwm]
+[ Info: measured call: wall 786.194 s, peak RSS 40.935 GiB (delta 34.277 GiB) [linux_vmhwm]
+[ Info: [reactant_after_enzyme N=256] runtime 786.195 ± 0.397 s (95% CI, n=12), peak RSS 40.160 GiB, objective 5.029246947078e+00 → /results/table_aug2026/reactant_after_enzyme/N0256/result.json

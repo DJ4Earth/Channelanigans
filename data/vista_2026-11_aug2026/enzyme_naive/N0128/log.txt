@@ -1,0 +1,26 @@
+warning: binary operator is integer and assumed constant:   %96 = add i64 %95, %84, !dbg !255
+warning: binary operator is integer and assumed constant:   %95 = add nuw nsw i64 %94, 1, !dbg !252
+warning: binary operator is integer and constant:   %94 = lshr exact i64 %93, 3, !dbg !252
+warning: binary operator is integer and assumed constant:   %93 = sub i64 %91, %92, !dbg !252
+┌ Info: Enzyme config
+│   config = "enzyme_naive"
+│   nsteps = 128
+│   checkpointing = "none"
+└   snaps = nothing
+[ Info: Reference call (warmup 1/1)
+[ Info: measured call: wall 2319.449 s, peak RSS 221.160 GiB (delta 219.228 GiB) [linux_vmhwm]
+[ Info: saved gradients to /results/diag_memory/default/enzyme_naive/N0128/gradients.jld2
+[ Info: Measuring 12 call(s) (last warmup took 2319.45 s)
+[ Info: measured call: wall 349.547 s, peak RSS 221.177 GiB (delta 204.539 GiB) [linux_vmhwm]
+[ Info: measured call: wall 342.070 s, peak RSS 221.123 GiB (delta 204.504 GiB) [linux_vmhwm]
+[ Info: measured call: wall 344.715 s, peak RSS 221.334 GiB (delta 204.750 GiB) [linux_vmhwm]
+[ Info: measured call: wall 346.547 s, peak RSS 221.451 GiB (delta 204.838 GiB) [linux_vmhwm]
+[ Info: measured call: wall 343.945 s, peak RSS 221.430 GiB (delta 204.820 GiB) [linux_vmhwm]
+[ Info: measured call: wall 345.795 s, peak RSS 221.173 GiB (delta 204.608 GiB) [linux_vmhwm]
+[ Info: measured call: wall 345.650 s, peak RSS 221.412 GiB (delta 204.820 GiB) [linux_vmhwm]
+[ Info: measured call: wall 348.771 s, peak RSS 221.540 GiB (delta 204.979 GiB) [linux_vmhwm]
+[ Info: measured call: wall 347.741 s, peak RSS 221.144 GiB (delta 204.592 GiB) [linux_vmhwm]
+[ Info: measured call: wall 346.746 s, peak RSS 221.318 GiB (delta 204.759 GiB) [linux_vmhwm]
+[ Info: measured call: wall 345.628 s, peak RSS 221.420 GiB (delta 204.855 GiB) [linux_vmhwm]
+[ Info: measured call: wall 349.289 s, peak RSS 221.520 GiB (delta 204.961 GiB) [linux_vmhwm]
+[ Info: [enzyme_naive N=128] runtime 346.370 ± 1.420 s (95% CI, n=12), peak RSS 221.337 GiB, objective 2.494976163641e+00 → /results/diag_memory/default/enzyme_naive/N0128/result.json

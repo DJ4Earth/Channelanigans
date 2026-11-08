@@ -1,0 +1,23 @@
+{
+  "slurm_job_id": "1128225",
+  "slurm_job_name": "ch-aug-reactant_binomial_log2-N32",
+  "partition": "gg",
+  "account": "Transfer-of-ECCO-glo",
+  "node": "i617-074.vista.tacc.utexas.edu",
+  "start_utc": "2026-11-07T17:00:24Z",
+  "end_utc": "2026-11-07T17:38:26Z",
+  "walltime_limit": "2:00:00",
+  "orchestrator_timeout_s": 5400,
+  "orchestrator_exit_code": 0,
+  "core": 0,
+  "driver_args": "--save-gradients",
+  "perf_mode": "on",
+  "image_profile": "aug2026",
+  "sif": "/work/08955/jlk3675/vista/channelanigans-2026-11-aug2026-cpu-2.sif",
+  "image_ref": "ghcr.io/jlk9/channelanigans-artifact:2026-11-aug2026-cpu-2",
+  "image_digest": "sha256:d9a137735986b897d88c22337f3b06b16868b3a19dcbd6c2089bad1c508edcb3",
+  "apptainer_version": "apptainer version 1.4.1-1.el9",
+  "kernel": "5.14.0-611.16.1.el9_7.aarch64+64k",
+  "perf_event_paranoid": "0",
+  "hpc_scripts_commit": "210b00455d9b6ead3900928840ac2d54d3c4d777"
+}

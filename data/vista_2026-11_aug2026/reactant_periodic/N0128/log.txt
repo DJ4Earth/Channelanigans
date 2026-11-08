@@ -1,0 +1,79 @@
+Events disabled
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1794034848.377568 2231061 dump.cc:515] HloModule dump enabled with path prefix: , suffix: before_optimizations
+E0000 00:00:1794035623.682014 2231224 slow_operation_alarm.cc:73] 
+********************************
+[Compiling module reactant_differe... for CPU] Very slow compile? If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
+********************************
+E0000 00:00:1794035715.330790 2231061 slow_operation_alarm.cc:140] The operation took 3m31.648858383s
+
+********************************
+[Compiling module reactant_differe... for CPU] Very slow compile? If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
+********************************
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+┌ Info: Reactant config
+│   config = "reactant_periodic"
+│   nsteps = 128
+│   optimize = true
+│   mincut = true
+└   checkpointing = ReactantCore.Periodic(11)
+┌ Info: Built HydrostaticFreeSurfaceModel{ReactantState, ImmersedBoundaryGrid}(time = 0 seconds, iteration = ConcretePJRTNumber(0))
+│ ├── grid: 80×160×32 ImmersedBoundaryGrid{Float64, Periodic, Bounded, Bounded} on ReactantState with 4×4×4 halo
+│ ├── timestepper: QuasiAdamsBashforth2TimeStepper
+│ ├── tracers: (T, S, e)
+│ ├── closure: Tuple with 3 closures:
+│ │   ├── HorizontalScalarDiffusivity{ExplicitTimeDiscretization}(ν=500.0, κ=(T=5.0e-5, S=5.0e-5, e=5.0e-5))
+│ │   ├── VerticalScalarDiffusivity{ExplicitTimeDiscretization}(ν=0.003, κ=(T=80×160×32 Field{Center, Center, Center} on ImmersedBoundaryGrid on ReactantState, S=80×160×32 Field{Center, Center, Center} on ImmersedBoundaryGrid on ReactantState, e=80×160×32 Field{Center, Center, Center} on ImmersedBoundaryGrid on ReactantState))
+│ │   └── ScalarBiharmonicDiffusivity{HorizontalFormulation}(ν=1.0e11, κ=(T=0.0, S=0.0, e=0.0))
+│ ├── buoyancy: SeawaterBuoyancy with g=9.80665 and LinearEquationOfState(thermal_expansion=0.000167, haline_contraction=0.00078) with ĝ = NegativeZDirection()
+│ ├── free surface: SplitExplicitFreeSurface with gravitational acceleration 9.80665 m s⁻²
+│ │   └── substepping: FixedSubstepNumber(7)
+│ ├── advection scheme: 
+│ │   ├── momentum: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ │   ├── T: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ │   ├── S: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ │   └── e: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ ├── vertical_coordinate: ZCoordinate
+└ └── coriolis: BetaPlane{Oceananigans.Advection.EnstrophyConserving{Float64}, Float64}
+[ Info: Compiling...
+[ Info: compile time 661.09 s
+[ Info: Reference call (warmup 1/1)
+[ Info: measured call: wall 1138.980 s, peak RSS 27.196 GiB (delta 21.830 GiB) [linux_vmhwm]
+[ Info: saved gradients to /results/table_aug2026/reactant_periodic/N0128/gradients.jld2
+[ Info: Measuring 12 call(s) (last warmup took 1138.98 s)
+[ Info: measured call: wall 1132.504 s, peak RSS 27.121 GiB (delta 21.639 GiB) [linux_vmhwm]
+[ Info: measured call: wall 1134.067 s, peak RSS 27.187 GiB (delta 21.633 GiB) [linux_vmhwm]
+[ Info: measured call: wall 1133.896 s, peak RSS 27.266 GiB (delta 21.633 GiB) [linux_vmhwm]
+[ Info: measured call: wall 1133.594 s, peak RSS 27.365 GiB (delta 21.633 GiB) [linux_vmhwm]
+[ Info: measured call: wall 1133.601 s, peak RSS 27.489 GiB (delta 21.639 GiB) [linux_vmhwm]
+[ Info: measured call: wall 1134.427 s, peak RSS 27.600 GiB (delta 21.639 GiB) [linux_vmhwm]
+[ Info: measured call: wall 1134.011 s, peak RSS 27.737 GiB (delta 21.650 GiB) [linux_vmhwm]
+[ Info: measured call: wall 1133.088 s, peak RSS 27.863 GiB (delta 21.633 GiB) [linux_vmhwm]
+[ Info: measured call: wall 1134.067 s, peak RSS 28.008 GiB (delta 21.633 GiB) [linux_vmhwm]
+[ Info: measured call: wall 1133.358 s, peak RSS 28.158 GiB (delta 21.633 GiB) [linux_vmhwm]
+[ Info: measured call: wall 1133.030 s, peak RSS 28.307 GiB (delta 21.633 GiB) [linux_vmhwm]
+[ Info: measured call: wall 1134.423 s, peak RSS 28.468 GiB (delta 21.639 GiB) [linux_vmhwm]
+[ Info: [reactant_periodic N=128] runtime 1133.672 ± 0.375 s (95% CI, n=12), peak RSS 27.714 GiB, objective 2.494976163641e+00 → /results/table_aug2026/reactant_periodic/N0128/result.json

@@ -1,0 +1,27 @@
+{
+  "command": "`numactl -C 0 perf stat -x, -I 100 -o /results/table_aug2026/reactant_full/N0032/perf.csv --delay=-1 -e r80C0,r80C1 --control fifo:/tmp/jl_21ulQ1uDYZ.perf_ctl,/tmp/jl_UditeheLqv.perf_ack -- /usr/local/julia/bin/julia -C native -J/usr/local/julia/lib/julia/sys.so -g1 --project=/opt/channelanigans /opt/channelanigans/bench/driver_reactant.jl --config reactant_full --nsteps 32 --out /results/table_aug2026 --configs-file /opt/channelanigans/bench/configs.toml --save-gradients`",
+  "config": "reactant_full",
+  "elapsed_s": 2374.367678165436,
+  "exitcode": 0,
+  "finished_at": "2026-11-07T01:17:42.780",
+  "julia_flags": "",
+  "nsteps": 32,
+  "numactl": true,
+  "perf": {
+    "attribution": "ok",
+    "events": "r80C0,r80C1",
+    "interval_ms": 100,
+    "n_measured": 12,
+    "n_windows": 12,
+    "totals_all_windows": {
+      "r80C0": 0,
+      "r80C1": 3628578569165
+    }
+  },
+  "reason": "",
+  "status": "ok",
+  "termsignal": 0,
+  "threads": 1,
+  "timeout_s": 5400.0,
+  "xla_flags": "--xla_backend_extra_options=xla_cpu_use_multi_output_fusion --xla_dump_to=/results/_hlo/table_aug2026/reactant_full/N0032"
+}
