@@ -76,6 +76,20 @@ submit() {   # submit <job name> <walltime> <script | --wrap CMD> [extra --expor
     if [[ $dry -eq 1 ]]; then echo "${cmd[*]}"; else "${cmd[@]}"; fi
 }
 
+# For the case loop: a refused sbatch (e.g. a per-user job limit) must not silently
+# drop the rest of the sweep, so record it and carry on.
+failed=()
+try_submit() {   # same arguments as submit; the job name is $1
+    local out
+    if out=$(submit "$@" 2>&1); then
+        echo "$out"; return 0
+    fi
+    echo "$out" >&2
+    echo "NOT SUBMITTED: $1" >&2
+    failed+=("$1")
+    return 0
+}
+
 if [[ -n $report ]]; then
     [[ $report == status || $report == final ]] || { echo "--report takes status or final" >&2; exit 2; }
     # --wrap runs report.sh from the repo (not a spooled copy), so it finds env.sh.
@@ -142,7 +156,15 @@ for c in "${cases[@]}"; do
     if (( wt_s > max_s )); then wt_s=$max_s; wt=$(printf '%02d:00:00' "$MAX_WALLTIME_H"); fi
     timeout_s=$(( wt_s - TIMEOUT_MARGIN_S ))
     (( timeout_s > 600 )) || { echo "walltime $wt too short for $name" >&2; exit 2; }
-    submit "$name" "$wt" case.slurm "CONFIG=$cfg,NSTEPS=$N,TIMEOUT_S=$timeout_s,FORCE=$force,PERF=$perf"
-    nsub=$((nsub + 1))
+    nfail=${#failed[@]}
+    try_submit "$name" "$wt" case.slurm "CONFIG=$cfg,NSTEPS=$N,TIMEOUT_S=$timeout_s,FORCE=$force,PERF=$perf"
+    (( ${#failed[@]} == nfail )) && nsub=$((nsub + 1))
 done
 echo "submitted $nsub job(s); logs in $LOG_DIR"
+if (( ${#failed[@]} > 0 )); then
+    echo >&2
+    echo "${#failed[@]} case(s) were NOT submitted (sbatch refused them; error above):" >&2
+    printf '  %s\n' "${failed[@]}" >&2
+    echo "Rerun the same command later: it skips cases that are done or queued." >&2
+    exit 1
+fi

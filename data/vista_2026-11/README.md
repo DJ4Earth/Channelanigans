@@ -48,7 +48,7 @@ sweep are in [`hpc/vista/`](../../hpc/vista/).
 | `<config>/N<nnnn>/log.txt` | Driver output |
 
 **Not in this repository** because of size (archived on Zenodo with the container
-image; DOI to follow):
+image; DOI 10.5072/zenodo.637533):
 - `perf.csv`: the raw 100 ms hardware-counter intervals behind the per-call FLOPs,
   about 200 MB in total.
 - `gradients.jld2`: the full gradient fields used for the cross-configuration

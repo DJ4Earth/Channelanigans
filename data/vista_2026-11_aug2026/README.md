@@ -101,7 +101,7 @@ measures every row the same way. Four differences are deliberate or unavoidable:
 | `<config>/N<nnnn>/xla_buffer_assignment.txt` | XLA's "Total bytes used" per compiled module, from the HLO dump (extra information, not the memory metric) |
 | `enzyme_naive/N0128/memory.csv` | Driver RSS and node `MemAvailable`, sampled every 5 s (see below) |
 
-**Not in this repository** because of size (for the Zenodo archive with the image):
+**Not in this repository** because of size (for the Zenodo archive with the images : 10.5072/zenodo.637533 and 10.5072/zenodo.637537):
 `perf.csv` (raw 100 ms counter intervals), `gradients.jld2` (full gradient fields),
 `raw_data.tar.gz`, and the sweep's `_superseded/` directory (failed earlier attempts).
 
