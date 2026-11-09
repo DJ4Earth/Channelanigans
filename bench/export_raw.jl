@@ -114,6 +114,29 @@ calls agree to within 1e-10 relative (observed ≤ 1e-14 among Reactant
 configurations and ≤ 8e-13 between Reactant and Enzyme-only).
 """
 
+# Appended to DATA_README.md for a pooled batched sweep (bench/merge_batches.jl).
+const BATCH_README = raw"""
+
+## Batches
+
+This sweep ran every case as several independent *batches*: separate jobs, usually
+on different nodes, each a fresh process with its own compilation, one warmup call
+(`kind = warmup`, `call_index = 0`) and R measured calls. The statistics pool the
+measured calls of every batch of a case that finished ok (`n_measured` = number of
+batches × R, column `n_batches`), and `call_index` numbers the pooled measured calls.
+`batch` and `hostname` in raw_runs.csv give each call's batch and node.
+
+Because the batches ran on different nodes, the pooled confidence interval includes
+node-to-node variation (on TACC Vista up to ~20 % in runtime), which a single
+process cannot show; with only a few nodes per case it still understates that
+variation. `batches.csv` lists every batch of every case (also ones that did not
+finish ok) with its outcome, node, SLURM job and per-batch means.
+
+The cross-configuration gradient check uses the warmup call of the first ok batch.
+Within a case, every call of every batch returns the identical objective
+(`objectives_consistent`).
+"""
+
 using TOML
 using JSON
 using Printf
@@ -199,9 +222,12 @@ function main(args)
         end
     end
     sort!(events)
+    # pooled batched sweep (bench/merge_batches.jl): extra columns and files
+    batched = any(c -> c.result !== nothing && haskey(c.result, "batches"), (c for (_, _, c) in cases))
+    bcols = batched ? ["batch", "hostname"] : String[]
 
     mkpath(o["dest"])
-    write(joinpath(o["dest"], "DATA_README.md"), DATA_README)
+    write(joinpath(o["dest"], "DATA_README.md"), batched ? DATA_README * BATCH_README : DATA_README)
 
     # raw_runs.csv
     nrows = 0
@@ -209,7 +235,7 @@ function main(args)
         csvrow(io, ["config", "label", "driver", "nsteps", "case_status", "case_reason",
                     "call_index", "kind", "wall_s", "base_rss_bytes", "peak_rss_bytes",
                     "delta_rss_bytes", "flops", events..., "objective_sv", "memory_method",
-                    "window_start_unix", "window_end_unix"])
+                    "window_start_unix", "window_end_unix", bcols...])
         for (cfg, N, c) in cases
             spec = get(configs, cfg, Dict())
             st = getpath(c.status, "status"; default = c.result === nothing ? "e" : "ok")
@@ -225,7 +251,8 @@ function main(args)
                             get(call, "flops", nothing),
                             (pc === nothing ? nothing : get(pc, ev, nothing) for ev in events)...,
                             get(call, "objective", nothing), get(call, "memory_method", ""),
-                            get(call, "window_start_unix", nothing), get(call, "window_end_unix", nothing)])
+                            get(call, "window_start_unix", nothing), get(call, "window_end_unix", nothing),
+                            (get(call, b, nothing) for b in bcols)...])
                 nrows += 1
             end
         end
@@ -239,7 +266,8 @@ function main(args)
                     statcols("delta_rss_bytes")..., statcols("flops")..., "perf_attribution",
                     "objective_sv", "objectives_consistent", "julia_version", "julia_flags",
                     "xla_flags", "threads", "numactl", "perf_events", "hostname", "cpu",
-                    "Reactant", "Enzyme", "Oceananigans", "Checkpointing", "CUDA", "git_commit"])
+                    "Reactant", "Enzyme", "Oceananigans", "Checkpointing", "CUDA", "git_commit",
+                    (batched ? ["n_batches"] : String[])...])
         for (cfg, N, c) in cases
             spec = get(configs, cfg, Dict())
             measured = [x for x in c.calls if get(x, "kind", "") == "measured"]
@@ -260,12 +288,29 @@ function main(args)
                         getpath(c.status, "numactl"), getpath(c.status, "perf", "events"),
                         get(env, "hostname", nothing), get(env, "cpu", nothing),
                         pkg("Reactant"), pkg("Enzyme"), pkg("Oceananigans"), pkg("Checkpointing"),
-                        pkg("CUDA"), get(env, "git_commit", nothing)])
+                        pkg("CUDA"), get(env, "git_commit", nothing),
+                        (batched ? [getpath(c.result, "protocol", "n_batches")] : [])...])
+        end
+    end
+
+    # batches.csv: one row per batch of every case (pooled batched sweeps only)
+    if batched
+        open(joinpath(o["dest"], "batches.csv"), "w") do io
+            keys_ = ["batch", "status", "reason", "hostname", "slurm_job_id", "elapsed_s", "compile_s",
+                     "n_measured", "wall_s_mean", "peak_rss_bytes_mean", "delta_rss_bytes_mean",
+                     "flops_mean", "perf_attribution", "objective"]
+            csvrow(io, ["config", "nsteps", keys_...])
+            for (cfg, N, c) in cases
+                bl = c.result !== nothing ? get(c.result, "batches", []) : getpath(c.status, "batches"; default = [])
+                for b in bl
+                    csvrow(io, [cfg, N, (get(b, k, nothing) for k in keys_)...])
+                end
+            end
         end
     end
 
     println("exported $(length(cases)) cases, $nrows call rows → $(o["dest"])")
-    println("  raw_runs.csv, cases.csv, DATA_README.md")
+    println("  raw_runs.csv, cases.csv, DATA_README.md", batched ? ", batches.csv" : "")
 
     if o["archive"]
         tarball = joinpath(dirname(abspath(o["dest"])), "raw_data.tar.gz")

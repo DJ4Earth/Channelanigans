@@ -19,6 +19,7 @@ call. The image settings are in [`env.sh`](env.sh).
 |---|---|---|---|
 | `current` (default) | current package versions (Julia 1.12.7, Reactant 0.2.304) | `table/` | all 9 in `bench/configs.toml` |
 | `aug2026` | the July/August 2026 environment of the original runs ([`envs/aug2026`](../../envs/aug2026/)) | `table_aug2026/` | the original 8 (no Revolve) |
+| `jll443` | current versions, but Reactant from `main` with Reactant_jll 0.0.443 ([`envs/jll443`](../../envs/jll443/)); runs in batches | `table_jll443_b1/`, `_b2/`, … pooled into `table_jll443/` | all 9 |
 
 Each profile gets its own job names (`ch-…` and `ch-aug-…`), so the two sweeps never
 skip or collide with each other's jobs. For `aug2026`, the walltimes for every case
@@ -30,6 +31,36 @@ hpc/vista/submit.sh --profile aug2026 --gate
 hpc/vista/submit.sh --profile aug2026 --walltimes hpc/vista/walltimes_aug2026_seed.tsv
 hpc/vista/submit.sh --profile aug2026 --report status    # predictions -> walltimes_aug2026.tsv
 ```
+
+## Batched sweeps (profile `jll443`)
+
+A profile with `BATCH_REPEATS` (in `env.sh`) runs every case as independent
+*batches*: separate jobs, usually on different nodes, each with 1 warmup and
+`BATCH_REPEATS` (4) measured calls. Batch K lands in `table_jll443_bK/`. Any number
+of finished batches can be pooled at any time; the pool's confidence intervals then
+include node-to-node spread.
+
+TACC allows only ~40–50 queued + running jobs per user, fewer than the 63 cases, so
+`fill.sh` reruns `submit.sh` every 10 min to keep the queue topped up to
+`--max-jobs` (default 40). Every batch-1 case is submitted before any batch 2, and
+each batch goes longest case first. A case whose batch 1 ended other than `ok`
+(e.g. `m`) gets no later batches. Walltimes come from the 2026-11 timings
+([`walltimes_jll443_seed.tsv`](walltimes_jll443_seed.tsv)), so there are no waves.
+
+```bash
+hpc/vista/submit.sh --profile jll443 --gate                 # may run alongside batch 1
+tmux new -s fill                                            # reattach on the same login node
+hpc/vista/fill.sh --profile jll443 --batches 1,2,3 \
+    --walltimes hpc/vista/walltimes_jll443_seed.tsv [--max-jobs 40]
+hpc/vista/submit.sh --profile jll443 --report status        # every batch
+hpc/vista/submit.sh --profile jll443 --report final         # pool finished batches + table
+```
+
+`fill.sh` never resubmits a case that already has a result (it passes `--new-only`);
+rerun one by hand with `submit.sh --profile jll443 --batches K --configs C --nsteps N
+--walltime HH:MM:SS`. `report final` can be run as often as you like: it pools whatever
+has finished (`bench/merge_batches.jl`), and adds `export/batches.csv` with each batch's
+node and means.
 
 ## 1. Gate (one job, about 1 h)
 

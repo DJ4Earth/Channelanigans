@@ -9,8 +9,9 @@
 #     killed by the kernel (e.g. OOM killer) is then seen as SIGKILL and classified
 #     "m". Under perf the kill is hidden: perf exits 0 and the case looks like "e".
 #   * move any earlier non-ok attempt aside to $WORK_ROOT/_superseded/ (kept, not deleted);
-#   * run the orchestrator (1 warmup + 12 measured calls, numactl-pinned, perf-counted)
-#     on $SCRATCH with a timeout below the SLURM walltime;
+#   * run the orchestrator (1 warmup + 12 measured calls, numactl-pinned, perf-counted;
+#     a batched profile: one batch of 1 warmup + BATCH_REPEATS measured calls, results
+#     in ${SWEEP}_b$CH_BATCH) on $SCRATCH with a timeout below the SLURM walltime;
 #   * copy the case directory to $WORK and add job_info.json (job, node, image digest).
 #
 #SBATCH -p gg
@@ -21,6 +22,11 @@ set -uo pipefail
 source "${HPC_DIR:-$SLURM_SUBMIT_DIR/hpc/vista}/env.sh"
 load_apptainer
 : "${CONFIG:?}" "${NSTEPS:?}" "${TIMEOUT_S:?}"
+# Batched profile: this job is one batch (CH_BATCH, exported by submit.sh --batches).
+if [[ -n ${BATCH_REPEATS:-} ]]; then
+    : "${CH_BATCH:?profile $CH_PROFILE runs in batches; submit with submit.sh --batches}"
+    select_batch "$CH_BATCH" || exit 2
+fi
 
 CASE=$CONFIG/$(printf 'N%04d' "$NSTEPS")
 SCR=$SCRATCH_ROOT/$SWEEP/$CASE
@@ -80,6 +86,8 @@ cat > "$DST/job_info.json" <<EOF
   "driver_args": "$DRIVER_ARGS",
   "perf_mode": "${PERF:-on}",
   "image_profile": "${CH_PROFILE:-current}",
+  "batch": $([[ -n ${BATCH_REPEATS:-} ]] && echo "$CH_BATCH" || echo null),
+  "sweep": "$SWEEP",
   "sif": "$SIF",
   "image_ref": "$IMAGE_REF",
   "image_digest": "$IMAGE_DIGEST",

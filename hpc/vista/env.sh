@@ -69,8 +69,27 @@ case $CH_PROFILE in
         RUN_XLA_FLAGS="--xla_backend_extra_options=xla_cpu_use_multi_output_fusion"
         XLA_DUMP=1
         ;;
+    jll443)    # current versions, but Reactant from main with Reactant_jll 0.0.443 (envs/jll443)
+        # Same runtime settings as `current` (orchestrator defaults: -O0, multi-threaded
+        # Eigen off). Run in batches of 4 measured calls (see "Batches" below).
+        # TODO after the image is built and pulled: SIF sha256, IMAGE_DIGEST, IMAGE_COMMIT.
+        SIF=/work/08955/jlk3675/vista/channelanigans-2026-11-jll443-cpu.sif
+        IMAGE_REF=ghcr.io/jlk9/channelanigans-artifact:2026-11-jll443-cpu
+        IMAGE_DIGEST=sha256:TODO
+        IMAGE_COMMIT=TODO
+        SWEEP=table_jll443
+        TABLE_CONFIGS=table
+        JOB_PREFIX=ch-j443
+        WALLTIMES_FILE=walltimes_jll443.tsv
+        GATE_WALLTIME=01:30:00
+        GATE_E2E_TIMEOUT_S=3600
+        BATCH_REPEATS=4
+        # enzyme_naive N=256 runs out of memory; under perf that is recorded as "e", so
+        # run it without perf (as its 2026-11 table entry was).
+        PERF_OFF_CASES="enzyme_naive:256"
+        ;;
     *)
-        echo "unknown image profile '$CH_PROFILE' (known: current, aug2026)" >&2
+        echo "unknown image profile '$CH_PROFILE' (known: current, aug2026, jll443)" >&2
         return 2 2>/dev/null || exit 2
         ;;
 esac
@@ -87,6 +106,24 @@ CORE=0                       # numactl -C core for the benchmark process
 DRIVER_ARGS="--save-gradients"   # per-driver extras; protocol defaults: 1 warmup + 12 measured
 TIMEOUT_MARGIN_S=1800        # orchestrator timeout = walltime - margin, so a slow
                              # case is classified "t" and copied back before SLURM kills the job
+MAX_JOBS=${MAX_JOBS:-40}     # submit.sh keeps at most this many of your jobs in the queue
+                             # (all of them, incl. idev); TACC's per-user limit is ~40-50
+
+# ---- Batches -------------------------------------------------------------------
+# A profile that sets BATCH_REPEATS runs every case as several independent batches:
+# separate jobs (usually on different nodes), each a fresh process with its own
+# compilation, 1 warmup call and BATCH_REPEATS measured calls. Batch K writes to
+# ${SWEEP}_bK with job names $JOB_PREFIX-bK-...; `report.sh final` pools the measured
+# calls of all finished batches into $SWEEP (bench/merge_batches.jl).
+# select_batch K switches SWEEP and JOB_PREFIX to batch K (case.slurm gets K as CH_BATCH).
+SWEEP_BASE=$SWEEP
+JOB_PREFIX_BASE=$JOB_PREFIX
+[[ -n ${BATCH_REPEATS:-} ]] && DRIVER_ARGS="--save-gradients --repeats $BATCH_REPEATS"
+select_batch() {
+    [[ $1 =~ ^[1-9][0-9]*$ ]] || { echo "bad batch number '$1'" >&2; return 2; }
+    SWEEP=${SWEEP_BASE}_b$1
+    JOB_PREFIX=$JOB_PREFIX_BASE-b$1
+}
 
 # Directory holding these scripts (and the repo checkout they belong to)
 HPC_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)

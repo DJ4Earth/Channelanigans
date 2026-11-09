@@ -1,13 +1,15 @@
 # Status of the sweep + walltime predictions for the cases not yet done.
 #
-#   (via hpc/vista/report.sh status)   julia plan.jl RESULTS_DIR CONFIGS_TOML WALLTIMES_OUT MAX_WALLTIME_H MARGIN_S [CONFIGS]
+#   (via hpc/vista/report.sh status)   julia plan.jl RESULTS_DIR CONFIGS_TOML WALLTIMES_OUT MAX_WALLTIME_H MARGIN_S [CONFIGS [NCALLS]]
 #   CONFIGS: comma-separated config list, or "table" (default) for the rows in CONFIGS_TOML
+#   NCALLS:  calls per case (default 13 = 1 warmup + 12 measured; a batch of a batched
+#            profile: 1 + BATCH_REPEATS)
 #
 # For each config, fits per-call time t(N) and peak memory M(N) to the finished cases
 # (power law through the two largest N; one point → linear), then predicts the
-# elapsed time of a full case (1 warmup + 12 measured calls) as
+# elapsed time of a full case (1 warmup + 12 measured calls, or NCALLS calls) as
 #     fixed overhead (compile, JIT, process start; from the largest finished N) × 1.5
-#   + 13 · t(N)
+#   + NCALLS · t(N)
 # The walltime asked for is that × 1.25 + MARGIN_S (the orchestrator timeout margin),
 # rounded up to 30 min, at least 1 h, capped at MAX_WALLTIME_H. Cases whose predicted
 # memory exceeds the node or whose predicted time exceeds the cap are flagged; they
@@ -15,7 +17,7 @@
 
 using JSON, TOML, Printf
 
-const NCALLS = 13
+NCALLS = 13   # set from the command line
 
 function load(dir)
     st = joinpath(dir, "status.json")
@@ -91,5 +93,6 @@ function main(resdir, cfgfile, wtfile, maxh, margin, configs = "table")
     println("\nwrote $(length(lines)) walltime(s) to $wtfile")
 end
 
+length(ARGS) >= 7 && (NCALLS = parse(Int, ARGS[7]))
 main(ARGS[1], ARGS[2], ARGS[3], parse(Int, ARGS[4]), parse(Int, ARGS[5]),
      length(ARGS) >= 6 ? ARGS[6] : "table")

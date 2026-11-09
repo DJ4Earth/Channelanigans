@@ -1,0 +1,71 @@
+# Walltimes for the batched jll443 sweep (profile jll443: 1 warmup + 4 measured calls
+# per batch job), seeded from the 2026-11 sweep (data/vista_2026-11, Reactant 0.2.304):
+#   walltime = 1.5 x (overhead + 5 x t/call) + 30 min margin, rounded up to 30 min, >= 1 h
+# overhead = 2026-11 elapsed - 13 x t/call (process start, compile, JIT). The 1.5 covers
+# a slower Reactant build and node-to-node spread (up to ~20%). The 2026-11 out-of-memory
+# cases have extrapolated t/call: reactant_mincut_off N=128 1120 s and N=256 3270 s (power
+# law through N=32,64), enzyme_naive N=256 400 s (2 x N=128).
+# Lines: config<TAB>N<TAB>HH:MM:SS (submit.sh --walltimes reads lines with 3 tab fields).
+reactant_full	4	01:00:00
+reactant_full	8	01:00:00
+reactant_full	16	01:00:00
+reactant_full	32	01:00:00
+reactant_full	64	01:00:00
+reactant_full	128	01:30:00
+reactant_full	256	02:30:00
+reactant_after_enzyme	4	01:00:00
+reactant_after_enzyme	8	01:00:00
+reactant_after_enzyme	16	01:00:00
+reactant_after_enzyme	32	01:00:00
+reactant_after_enzyme	64	01:30:00
+reactant_after_enzyme	128	01:30:00
+reactant_after_enzyme	256	02:30:00
+reactant_mincut_off	4	01:00:00
+reactant_mincut_off	8	01:00:00
+reactant_mincut_off	16	01:00:00
+reactant_mincut_off	32	01:00:00
+reactant_mincut_off	64	01:30:00
+reactant_mincut_off	128	03:00:00
+reactant_mincut_off	256	07:30:00
+reactant_periodic	4	01:00:00
+reactant_periodic	8	01:00:00
+reactant_periodic	16	01:00:00
+reactant_periodic	32	01:30:00
+reactant_periodic	64	02:00:00
+reactant_periodic	128	03:00:00
+reactant_periodic	256	05:00:00
+reactant_periodic_mincut_off	4	01:00:00
+reactant_periodic_mincut_off	8	01:00:00
+reactant_periodic_mincut_off	16	01:00:00
+reactant_periodic_mincut_off	32	01:30:00
+reactant_periodic_mincut_off	64	02:00:00
+reactant_periodic_mincut_off	128	03:30:00
+reactant_periodic_mincut_off	256	07:00:00
+reactant_binomial_10	4	01:00:00
+reactant_binomial_10	8	01:00:00
+reactant_binomial_10	16	01:00:00
+reactant_binomial_10	32	01:00:00
+reactant_binomial_10	64	01:30:00
+reactant_binomial_10	128	01:30:00
+reactant_binomial_10	256	02:30:00
+reactant_binomial_log2	4	01:00:00
+reactant_binomial_log2	8	01:00:00
+reactant_binomial_log2	16	01:00:00
+reactant_binomial_log2	32	01:00:00
+reactant_binomial_log2	64	01:30:00
+reactant_binomial_log2	128	01:30:00
+reactant_binomial_log2	256	02:30:00
+enzyme_naive	4	01:00:00
+enzyme_naive	8	01:00:00
+enzyme_naive	16	01:00:00
+enzyme_naive	32	01:00:00
+enzyme_naive	64	01:00:00
+enzyme_naive	128	01:30:00
+enzyme_naive	256	01:30:00
+enzyme_revolve_log2	4	01:00:00
+enzyme_revolve_log2	8	01:00:00
+enzyme_revolve_log2	16	01:00:00
+enzyme_revolve_log2	32	01:30:00
+enzyme_revolve_log2	64	02:00:00
+enzyme_revolve_log2	128	03:00:00
+enzyme_revolve_log2	256	06:00:00
