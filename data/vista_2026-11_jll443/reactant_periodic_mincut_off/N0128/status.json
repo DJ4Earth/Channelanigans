@@ -1,0 +1,77 @@
+{
+  "batches": [
+    {
+      "batch": 1,
+      "compile_s": 137.881735115,
+      "delta_rss_bytes_mean": 5.0842238976e10,
+      "elapsed_s": 2100.0480120182037,
+      "flops_mean": 6.098456252465e11,
+      "hostname": "i614-113.vista.tacc.utexas.edu",
+      "n_measured": 4,
+      "objective": 2.494933003334412,
+      "peak_rss_bytes_mean": 5.613453312e10,
+      "perf_attribution": "ok",
+      "reason": "",
+      "slurm_job_id": "1132197",
+      "status": "ok",
+      "wall_s_mean": 365.86990709074996
+    },
+    {
+      "batch": 2,
+      "compile_s": 131.910964175,
+      "delta_rss_bytes_mean": 5.0839273472e10,
+      "elapsed_s": 2088.086405992508,
+      "flops_mean": 6.097965370625e11,
+      "hostname": "i617-062.vista.tacc.utexas.edu",
+      "n_measured": 4,
+      "objective": 2.494933003334412,
+      "peak_rss_bytes_mean": 5.6186011648e10,
+      "perf_attribution": "ok",
+      "reason": "",
+      "slurm_job_id": "1132307",
+      "status": "ok",
+      "wall_s_mean": 364.24372420275
+    },
+    {
+      "batch": 3,
+      "compile_s": 132.991387078,
+      "delta_rss_bytes_mean": 5.084348416e10,
+      "elapsed_s": 2090.0889608860016,
+      "flops_mean": 6.0979578550625e11,
+      "hostname": "i614-083.vista.tacc.utexas.edu",
+      "n_measured": 4,
+      "objective": 2.494933003334412,
+      "peak_rss_bytes_mean": 5.611749376e10,
+      "perf_attribution": "ok",
+      "reason": "",
+      "slurm_job_id": "1132447",
+      "status": "ok",
+      "wall_s_mean": 364.15847027974996
+    }
+  ],
+  "command": "`numactl -C 0 perf stat -x, -I 100 -o /results/table_jll443_b1/reactant_periodic_mincut_off/N0128/perf.csv --delay=-1 -e r80C0,r80C1 --control fifo:/tmp/jl_D0xKFkXUXA.perf_ctl,/tmp/jl_dU5M1EXABs.perf_ack -- /usr/local/julia/bin/julia -C native -J/usr/local/julia/lib/julia/sys.so -g1 -O0 --project=/opt/channelanigans /opt/channelanigans/bench/driver_reactant.jl --config reactant_periodic_mincut_off --nsteps 128 --out /results/table_jll443_b1 --configs-file /opt/channelanigans/bench/configs.toml --save-gradients --repeats 4`",
+  "config": "reactant_periodic_mincut_off",
+  "elapsed_s": 6278.223378896713,
+  "exitcode": 0,
+  "finished_at": "2026-11-09T13:15:01.643",
+  "julia_flags": "-O0",
+  "nsteps": 128,
+  "numactl": true,
+  "perf": {
+    "attribution": "ok",
+    "events": "r80C0,r80C1",
+    "interval_ms": 100,
+    "n_measured": 4,
+    "n_windows": 4,
+    "totals_all_windows": {
+      "r80C0": 0,
+      "r80C1": 2439382500986
+    }
+  },
+  "reason": "",
+  "status": "ok",
+  "termsignal": 0,
+  "threads": 1,
+  "timeout_s": 10800.0,
+  "xla_flags": "--xla_cpu_multi_thread_eigen=false --xla_backend_extra_options=xla_cpu_use_multi_output_fusion"
+}

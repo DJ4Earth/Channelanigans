@@ -1,0 +1,21 @@
+{
+  "command": "`numactl -C 0 perf stat -x, -I 100 -o /results/table_jll443_b1/reactant_mincut_off/N0128/perf.csv --delay=-1 -e r80C0,r80C1 --control fifo:/tmp/jl_SFwXEtG1OJ.perf_ctl,/tmp/jl_kzEj8d0Ns7.perf_ack -- /usr/local/julia/bin/julia -C native -J/usr/local/julia/lib/julia/sys.so -g1 -O0 --project=/opt/channelanigans /opt/channelanigans/bench/driver_reactant.jl --config reactant_mincut_off --nsteps 128 --out /results/table_jll443_b1 --configs-file /opt/channelanigans/bench/configs.toml --save-gradients --repeats 4`",
+  "config": "reactant_mincut_off",
+  "elapsed_s": 209.22246098518372,
+  "exitcode": 0,
+  "finished_at": "2026-11-09T12:43:28.936",
+  "julia_flags": "-O0",
+  "nsteps": 128,
+  "numactl": true,
+  "perf": {
+    "events": "r80C0,r80C1",
+    "interval_ms": 100,
+    "totals_all_windows": {}
+  },
+  "reason": "log matched 'Out of memory'",
+  "status": "m",
+  "termsignal": 0,
+  "threads": 1,
+  "timeout_s": 9000.0,
+  "xla_flags": "--xla_cpu_multi_thread_eigen=false --xla_backend_extra_options=xla_cpu_use_multi_output_fusion"
+}

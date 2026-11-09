@@ -1,0 +1,45 @@
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+┌ Info: Reactant config
+│   config = "reactant_after_enzyme"
+│   nsteps = 128
+│   optimize = :after_enzyme
+│   mincut = true
+│   checkpointing = false
+└   first_step_init = true
+┌ Info: Built HydrostaticFreeSurfaceModel{ReactantState, ImmersedBoundaryGrid}(time = 0 seconds, iteration = ConcretePJRTNumber(0))
+│ ├── grid: 80×160×32 ImmersedBoundaryGrid{Float64, Periodic, Bounded, Bounded} on ReactantState with 4×4×4 halo
+│ ├── timestepper: QuasiAdamsBashforth2TimeStepper
+│ ├── tracers: (T, S, e)
+│ ├── closure: Tuple with 3 closures:
+│ │   ├── HorizontalScalarDiffusivity{ExplicitTimeDiscretization}(ν=500.0, κ=(T=5.0e-5, S=5.0e-5, e=5.0e-5))
+│ │   ├── VerticalScalarDiffusivity{ExplicitTimeDiscretization}(ν=0.003, κ=(T=80×160×32 Field{Center, Center, Center} on ImmersedBoundaryGrid on ReactantState, S=80×160×32 Field{Center, Center, Center} on ImmersedBoundaryGrid on ReactantState, e=80×160×32 Field{Center, Center, Center} on ImmersedBoundaryGrid on ReactantState))
+│ │   └── ScalarBiharmonicDiffusivity{HorizontalFormulation}(ν=1.0e11, κ=nothing)
+│ ├── buoyancy: SeawaterBuoyancy with g=9.80665 and LinearEquationOfState(thermal_expansion=0.000167, haline_contraction=0.00078) with ĝ = NegativeZDirection()
+│ ├── free surface: SplitExplicitFreeSurface with gravitational acceleration 9.80665 m s⁻²
+│ │   └── substepping: FixedSubstepNumber(7)
+│ ├── advection scheme: 
+│ │   ├── momentum: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ │   ├── T: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ │   ├── S: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ │   └── e: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ ├── vertical_coordinate: ZCoordinate
+└ └── coriolis: BetaPlane{Oceananigans.Advection.EnstrophyConserving{Float64}, Float64}
+[ Info: Compiling...
+[ Info: compile time 108.13 s
+[ Info: Reference call (warmup 1/1)
+[ Info: measured call: wall 142.540 s, peak RSS 25.515 GiB (delta 20.932 GiB) [linux_vmhwm]
+[ Info: saved gradients to /results/table_jll443_b3/reactant_after_enzyme/N0128/gradients.jld2
+[ Info: Measuring 4 call(s) (last warmup took 142.54 s)
+[ Info: measured call: wall 141.322 s, peak RSS 25.503 GiB (delta 20.811 GiB) [linux_vmhwm]
+[ Info: measured call: wall 141.267 s, peak RSS 25.503 GiB (delta 20.793 GiB) [linux_vmhwm]
+[ Info: measured call: wall 141.284 s, peak RSS 25.503 GiB (delta 20.789 GiB) [linux_vmhwm]
+[ Info: measured call: wall 141.350 s, peak RSS 25.503 GiB (delta 20.810 GiB) [linux_vmhwm]
+[ Info: [reactant_after_enzyme N=128] runtime 141.306 ± 0.060 s (95% CI, n=4), peak RSS 25.503 GiB, objective 2.494933003334e+00 → /results/table_jll443_b3/reactant_after_enzyme/N0128/result.json

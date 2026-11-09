@@ -1,0 +1,28 @@
+Events disabled
+warning: binary operator is integer and assumed constant:   %63 = add i64 %62, %.size.0.copyload, !dbg !325
+warning: binary operator is integer and assumed constant:   %62 = add nuw nsw i64 %memoryref_offsetidx40, 1, !dbg !322
+warning: binary operator is integer and constant:   %memoryref_offsetidx40 = lshr exact i64 %memoryref_offset, 3, !dbg !322
+warning: binary operator is integer and assumed constant:   %memoryref_offset = sub i64 %60, %61, !dbg !322
+warning: binary operator is integer and assumed constant:   %59 = add i64 %.size.0.copyload, 1, !dbg !318
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+┌ Info: Enzyme config
+│   config = "enzyme_naive"
+│   nsteps = 32
+│   checkpointing = "none"
+└   snaps = nothing
+[ Info: Reference call (warmup 1/1)
+[ Info: measured call: wall 243.604 s, peak RSS 37.690 GiB (delta 35.973 GiB) [linux_vmhwm]
+[ Info: saved gradients to /results/table_jll443_b2/enzyme_naive/N0032/gradients.jld2
+[ Info: Measuring 4 call(s) (last warmup took 243.6 s)
+[ Info: measured call: wall 48.533 s, peak RSS 37.752 GiB (delta 33.778 GiB) [linux_vmhwm]
+[ Info: measured call: wall 48.605 s, peak RSS 37.752 GiB (delta 33.770 GiB) [linux_vmhwm]
+[ Info: measured call: wall 48.517 s, peak RSS 37.750 GiB (delta 33.773 GiB) [linux_vmhwm]
+[ Info: measured call: wall 48.685 s, peak RSS 37.755 GiB (delta 33.774 GiB) [linux_vmhwm]
+[ Info: [enzyme_naive N=32] runtime 48.585 ± 0.122 s (95% CI, n=4), peak RSS 37.752 GiB, objective 6.776874518370e-01 → /results/table_jll443_b2/enzyme_naive/N0032/result.json

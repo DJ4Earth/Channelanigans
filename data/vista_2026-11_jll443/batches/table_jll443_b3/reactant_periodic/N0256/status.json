@@ -1,0 +1,27 @@
+{
+  "command": "`numactl -C 0 perf stat -x, -I 100 -o /results/table_jll443_b3/reactant_periodic/N0256/perf.csv --delay=-1 -e r80C0,r80C1 --control fifo:/tmp/jl_MTUtUnWBU9.perf_ctl,/tmp/jl_EBUbILkbAZ.perf_ack -- /usr/local/julia/bin/julia -C native -J/usr/local/julia/lib/julia/sys.so -g1 -O0 --project=/opt/channelanigans /opt/channelanigans/bench/driver_reactant.jl --config reactant_periodic --nsteps 256 --out /results/table_jll443_b3 --configs-file /opt/channelanigans/bench/configs.toml --save-gradients --repeats 4`",
+  "config": "reactant_periodic",
+  "elapsed_s": 3295.218116044998,
+  "exitcode": 0,
+  "finished_at": "2026-11-09T15:12:43.312",
+  "julia_flags": "-O0",
+  "nsteps": 256,
+  "numactl": true,
+  "perf": {
+    "attribution": "ok",
+    "events": "r80C0,r80C1",
+    "interval_ms": 100,
+    "n_measured": 4,
+    "n_windows": 4,
+    "totals_all_windows": {
+      "r80C0": 0,
+      "r80C1": 5661333989286
+    }
+  },
+  "reason": "",
+  "status": "ok",
+  "termsignal": 0,
+  "threads": 1,
+  "timeout_s": 16200.0,
+  "xla_flags": "--xla_cpu_multi_thread_eigen=false --xla_backend_extra_options=xla_cpu_use_multi_output_fusion"
+}

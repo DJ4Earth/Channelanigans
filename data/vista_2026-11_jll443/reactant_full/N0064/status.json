@@ -1,0 +1,77 @@
+{
+  "batches": [
+    {
+      "batch": 1,
+      "compile_s": 97.502535263,
+      "delta_rss_bytes_mean": 8.758050816e9,
+      "elapsed_s": 569.5722370147705,
+      "flops_mean": 2.4093833668e11,
+      "hostname": "i617-052.vista.tacc.utexas.edu",
+      "n_measured": 4,
+      "objective": 1.303761778373652,
+      "peak_rss_bytes_mean": 1.3679050752e10,
+      "perf_attribution": "ok",
+      "reason": "",
+      "slurm_job_id": "1132225",
+      "status": "ok",
+      "wall_s_mean": 67.0357570355
+    },
+    {
+      "batch": 2,
+      "compile_s": 96.207799569,
+      "delta_rss_bytes_mean": 8.75675648e9,
+      "elapsed_s": 564.5724859237671,
+      "flops_mean": 2.409314032225e11,
+      "hostname": "i614-124.vista.tacc.utexas.edu",
+      "n_measured": 4,
+      "objective": 1.303761778373652,
+      "peak_rss_bytes_mean": 1.3715800064e10,
+      "perf_attribution": "ok",
+      "reason": "",
+      "slurm_job_id": "1132351",
+      "status": "ok",
+      "wall_s_mean": 66.8063022705
+    },
+    {
+      "batch": 3,
+      "compile_s": 95.996526552,
+      "delta_rss_bytes_mean": 8.754446336e9,
+      "elapsed_s": 561.5659358501434,
+      "flops_mean": 2.409339433165e11,
+      "hostname": "i615-111.vista.tacc.utexas.edu",
+      "n_measured": 4,
+      "objective": 1.303761778373652,
+      "peak_rss_bytes_mean": 1.371979776e10,
+      "perf_attribution": "ok",
+      "reason": "",
+      "slurm_job_id": "1132549",
+      "status": "ok",
+      "wall_s_mean": 66.52189520350001
+    }
+  ],
+  "command": "`numactl -C 0 perf stat -x, -I 100 -o /results/table_jll443_b1/reactant_full/N0064/perf.csv --delay=-1 -e r80C0,r80C1 --control fifo:/tmp/jl_9wZ8PCpihk.perf_ctl,/tmp/jl_lw1qTIpSjW.perf_ack -- /usr/local/julia/bin/julia -C native -J/usr/local/julia/lib/julia/sys.so -g1 -O0 --project=/opt/channelanigans /opt/channelanigans/bench/driver_reactant.jl --config reactant_full --nsteps 64 --out /results/table_jll443_b1 --configs-file /opt/channelanigans/bench/configs.toml --save-gradients --repeats 4`",
+  "config": "reactant_full",
+  "elapsed_s": 1695.710658788681,
+  "exitcode": 0,
+  "finished_at": "2026-11-09T13:13:07.944",
+  "julia_flags": "-O0",
+  "nsteps": 64,
+  "numactl": true,
+  "perf": {
+    "attribution": "ok",
+    "events": "r80C0,r80C1",
+    "interval_ms": 100,
+    "n_measured": 4,
+    "n_windows": 4,
+    "totals_all_windows": {
+      "r80C0": 0,
+      "r80C1": 963753346720
+    }
+  },
+  "reason": "",
+  "status": "ok",
+  "termsignal": 0,
+  "threads": 1,
+  "timeout_s": 1800.0,
+  "xla_flags": "--xla_cpu_multi_thread_eigen=false --xla_backend_extra_options=xla_cpu_use_multi_output_fusion"
+}

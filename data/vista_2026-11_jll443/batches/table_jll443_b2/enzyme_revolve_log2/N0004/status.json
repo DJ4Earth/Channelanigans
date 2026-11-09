@@ -1,0 +1,27 @@
+{
+  "command": "`numactl -C 0 perf stat -x, -I 100 -o /results/table_jll443_b2/enzyme_revolve_log2/N0004/perf.csv --delay=-1 -e r80C0,r80C1 --control fifo:/tmp/jl_RQT2FE1s9u.perf_ctl,/tmp/jl_H6LKTMn6Xm.perf_ack -- /usr/local/julia/bin/julia -C native -J/usr/local/julia/lib/julia/sys.so -g1 -O0 --project=/opt/channelanigans /opt/channelanigans/bench/driver_enzyme.jl --config enzyme_revolve_log2 --nsteps 4 --out /results/table_jll443_b2 --configs-file /opt/channelanigans/bench/configs.toml --save-gradients --repeats 4`",
+  "config": "enzyme_revolve_log2",
+  "elapsed_s": 344.36066484451294,
+  "exitcode": 0,
+  "finished_at": "2026-11-09T14:21:14.962",
+  "julia_flags": "-O0",
+  "nsteps": 4,
+  "numactl": true,
+  "perf": {
+    "attribution": "ok",
+    "events": "r80C0,r80C1",
+    "interval_ms": 100,
+    "n_measured": 4,
+    "n_windows": 4,
+    "totals_all_windows": {
+      "r80C0": 73661354,
+      "r80C1": 117077565211
+    }
+  },
+  "reason": "",
+  "status": "ok",
+  "termsignal": 0,
+  "threads": 1,
+  "timeout_s": 1800.0,
+  "xla_flags": "--xla_cpu_multi_thread_eigen=false --xla_backend_extra_options=xla_cpu_use_multi_output_fusion"
+}

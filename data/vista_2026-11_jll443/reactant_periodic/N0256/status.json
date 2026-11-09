@@ -1,0 +1,77 @@
+{
+  "batches": [
+    {
+      "batch": 1,
+      "compile_s": 134.284805499,
+      "delta_rss_bytes_mean": 1.9372490752e10,
+      "elapsed_s": 3349.283565044403,
+      "flops_mean": 1.415412378257e12,
+      "hostname": "i614-132.vista.tacc.utexas.edu",
+      "n_measured": 4,
+      "objective": 5.028712753068818,
+      "peak_rss_bytes_mean": 2.4576720896e10,
+      "perf_attribution": "ok",
+      "reason": "",
+      "slurm_job_id": "1132196",
+      "status": "ok",
+      "wall_s_mean": 615.262607489
+    },
+    {
+      "batch": 2,
+      "compile_s": 130.369776971,
+      "delta_rss_bytes_mean": 1.9375947776e10,
+      "elapsed_s": 3338.25044798851,
+      "flops_mean": 1.415395702643e12,
+      "hostname": "i617-052.vista.tacc.utexas.edu",
+      "n_measured": 4,
+      "objective": 5.028712753068818,
+      "peak_rss_bytes_mean": 2.4546148352e10,
+      "perf_attribution": "ok",
+      "reason": "",
+      "slurm_job_id": "1132306",
+      "status": "ok",
+      "wall_s_mean": 614.048735732
+    },
+    {
+      "batch": 3,
+      "compile_s": 127.193609945,
+      "delta_rss_bytes_mean": 1.9376062464e10,
+      "elapsed_s": 3295.218116044998,
+      "flops_mean": 1.4153334973215e12,
+      "hostname": "i615-083.vista.tacc.utexas.edu",
+      "n_measured": 4,
+      "objective": 5.028712753068818,
+      "peak_rss_bytes_mean": 2.4498028544e10,
+      "perf_attribution": "ok",
+      "reason": "",
+      "slurm_job_id": "1132446",
+      "status": "ok",
+      "wall_s_mean": 606.782971642
+    }
+  ],
+  "command": "`numactl -C 0 perf stat -x, -I 100 -o /results/table_jll443_b1/reactant_periodic/N0256/perf.csv --delay=-1 -e r80C0,r80C1 --control fifo:/tmp/jl_reRQJABW9E.perf_ctl,/tmp/jl_j6lGDWpej6.perf_ack -- /usr/local/julia/bin/julia -C native -J/usr/local/julia/lib/julia/sys.so -g1 -O0 --project=/opt/channelanigans /opt/channelanigans/bench/driver_reactant.jl --config reactant_periodic --nsteps 256 --out /results/table_jll443_b1 --configs-file /opt/channelanigans/bench/configs.toml --save-gradients --repeats 4`",
+  "config": "reactant_periodic",
+  "elapsed_s": 9982.752129077911,
+  "exitcode": 0,
+  "finished_at": "2026-11-09T13:35:51.036",
+  "julia_flags": "-O0",
+  "nsteps": 256,
+  "numactl": true,
+  "perf": {
+    "attribution": "ok",
+    "events": "r80C0,r80C1",
+    "interval_ms": 100,
+    "n_measured": 4,
+    "n_windows": 4,
+    "totals_all_windows": {
+      "r80C0": 0,
+      "r80C1": 5661649513028
+    }
+  },
+  "reason": "",
+  "status": "ok",
+  "termsignal": 0,
+  "threads": 1,
+  "timeout_s": 16200.0,
+  "xla_flags": "--xla_cpu_multi_thread_eigen=false --xla_backend_extra_options=xla_cpu_use_multi_output_fusion"
+}

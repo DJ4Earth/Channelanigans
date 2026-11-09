@@ -1,0 +1,28 @@
+Events disabled
+warning: binary operator is integer and assumed constant:   %63 = add i64 %62, %.size.0.copyload, !dbg !307
+warning: binary operator is integer and assumed constant:   %62 = add nuw nsw i64 %memoryref_offsetidx40, 1, !dbg !304
+warning: binary operator is integer and constant:   %memoryref_offsetidx40 = lshr exact i64 %memoryref_offset, 3, !dbg !304
+warning: binary operator is integer and assumed constant:   %memoryref_offset = sub i64 %60, %61, !dbg !304
+warning: binary operator is integer and assumed constant:   %59 = add i64 %.size.0.copyload, 1, !dbg !300
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+┌ Info: Enzyme config
+│   config = "enzyme_revolve_log2"
+│   nsteps = 16
+│   checkpointing = "revolve"
+└   snaps = 4
+[ Info: Reference call (warmup 1/1)
+[ Info: measured call: wall 279.683 s, peak RSS 5.680 GiB (delta 3.964 GiB) [linux_vmhwm]
+[ Info: saved gradients to /results/table_jll443_b3/enzyme_revolve_log2/N0016/gradients.jld2
+[ Info: Measuring 4 call(s) (last warmup took 279.68 s)
+[ Info: measured call: wall 101.292 s, peak RSS 5.694 GiB (delta 1.837 GiB) [linux_vmhwm]
+[ Info: measured call: wall 101.242 s, peak RSS 5.700 GiB (delta 1.837 GiB) [linux_vmhwm]
+[ Info: measured call: wall 101.298 s, peak RSS 5.700 GiB (delta 1.837 GiB) [linux_vmhwm]
+[ Info: measured call: wall 101.315 s, peak RSS 5.701 GiB (delta 1.828 GiB) [linux_vmhwm]
+[ Info: [enzyme_revolve_log2 N=16] runtime 101.287 ± 0.050 s (95% CI, n=4), peak RSS 5.699 GiB, objective 3.026059311933e-01 → /results/table_jll443_b3/enzyme_revolve_log2/N0016/result.json

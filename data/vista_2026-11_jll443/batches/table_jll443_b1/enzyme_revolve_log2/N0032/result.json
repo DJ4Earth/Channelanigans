@@ -1,0 +1,385 @@
+{
+  "calls": [
+    {
+      "base_rss_bytes": 1868496896,
+      "delta_rss_bytes": 4385472512,
+      "kind": "warmup",
+      "memory_method": "linux_vmhwm",
+      "objective": 0.6776874518369782,
+      "peak_rss_bytes": 6253969408,
+      "perf_counted": false,
+      "wall_s": 419.170113982,
+      "window_end_unix": 1.794251096478135e9,
+      "window_start_unix": 1.79425067730802e9
+    },
+    {
+      "base_rss_bytes": 4218945536,
+      "delta_rss_bytes": 2067333120,
+      "flops": 253139861025,
+      "kind": "measured",
+      "memory_method": "linux_vmhwm",
+      "objective": 0.6776874518369782,
+      "peak_rss_bytes": 6286278656,
+      "perf_counted": true,
+      "perf_counts": {
+        "r80C0": 139319150,
+        "r80C1": 253000541875
+      },
+      "wall_s": 236.522347265,
+      "window_end_unix": 1.794251337707408e9,
+      "window_start_unix": 1.794251101185059e9
+    },
+    {
+      "base_rss_bytes": 4222615552,
+      "delta_rss_bytes": 2067333120,
+      "flops": 253146380320,
+      "kind": "measured",
+      "memory_method": "linux_vmhwm",
+      "objective": 0.6776874518369782,
+      "peak_rss_bytes": 6289948672,
+      "perf_counted": true,
+      "perf_counts": {
+        "r80C0": 137598238,
+        "r80C1": 253008782082
+      },
+      "wall_s": 236.551976464,
+      "window_end_unix": 1.794251577881168e9,
+      "window_start_unix": 1.79425134132919e9
+    },
+    {
+      "base_rss_bytes": 4224974848,
+      "delta_rss_bytes": 2067333120,
+      "flops": 253172913313,
+      "kind": "measured",
+      "memory_method": "linux_vmhwm",
+      "objective": 0.6776874518369782,
+      "peak_rss_bytes": 6292307968,
+      "perf_counted": true,
+      "perf_counts": {
+        "r80C0": 139016922,
+        "r80C1": 253033896391
+      },
+      "wall_s": 237.024943259,
+      "window_end_unix": 1.794251818034448e9,
+      "window_start_unix": 1.794251581009503e9
+    },
+    {
+      "base_rss_bytes": 4229038080,
+      "delta_rss_bytes": 2067333120,
+      "flops": 253163946991,
+      "kind": "measured",
+      "memory_method": "linux_vmhwm",
+      "objective": 0.6776874518369782,
+      "peak_rss_bytes": 6296371200,
+      "perf_counted": true,
+      "perf_counts": {
+        "r80C0": 139239450,
+        "r80C1": 253024707541
+      },
+      "wall_s": 237.125693608,
+      "window_end_unix": 1.794252058283884e9,
+      "window_start_unix": 1.794251821158189e9
+    }
+  ],
+  "config": "enzyme_revolve_log2",
+  "config_spec": {
+    "checkpointing": "revolve",
+    "driver": "enzyme",
+    "label": "AD only, no prior optimization, Checkpointing.jl Revolve ($b = \\log_2 N$)",
+    "snaps": "log2"
+  },
+  "delta_rss_bytes": 2.06733312e9,
+  "delta_rss_stats": {
+    "ci95": [
+      2.06733312e9,
+      2.06733312e9
+    ],
+    "ci95_halfwidth": 0.0,
+    "max": 2.06733312e9,
+    "mean": 2.06733312e9,
+    "median": 2.06733312e9,
+    "min": 2.06733312e9,
+    "n": 4,
+    "std": 0.0,
+    "values": [
+      2.06733312e9,
+      2.06733312e9,
+      2.06733312e9,
+      2.06733312e9
+    ]
+  },
+  "driver": "enzyme",
+  "environment": {
+    "arch": "aarch64",
+    "cpu": "unknown",
+    "env": {
+      "BENCH_JULIA_FLAGS": "-O0",
+      "JULIA_NUM_THREADS": "1",
+      "OMP_NUM_THREADS": null,
+      "PERF_CTL_FIFO": "/tmp/jl_ITQtI3IlOL.perf_ctl",
+      "SLURM_JOB_ID": "1132220",
+      "SLURM_JOB_PARTITION": "gg",
+      "XLA_FLAGS": "--xla_cpu_multi_thread_eigen=false --xla_backend_extra_options=xla_cpu_use_multi_output_fusion"
+    },
+    "git_commit": "3f6c63da496e9bcdb5acf77948578a963ccbd711",
+    "hostname": "i615-104.vista.tacc.utexas.edu",
+    "julia_cmd": "`/usr/local/julia/bin/julia -C native -J/usr/local/julia/lib/julia/sys.so -O0 -g1`",
+    "julia_opt_level": 0,
+    "julia_version": "1.12.7",
+    "ncores": 144,
+    "os": "Linux",
+    "packages": {
+      "CUDA": {
+        "git_revision": "",
+        "tree_hash": "6b7605ef4d1bfc851f6743c278eb01842b3ebb99",
+        "version": "6.2.2"
+      },
+      "Checkpointing": {
+        "git_revision": "",
+        "tree_hash": "72ff0fc0e1e359a8689015d0715b70291c4118c5",
+        "version": "0.13.0"
+      },
+      "Enzyme": {
+        "git_revision": "",
+        "tree_hash": "49a2f5cefe1810e44e898377f4de6e1ec7b97c19",
+        "version": "0.13.219"
+      },
+      "EnzymeCore": {
+        "git_revision": "",
+        "tree_hash": "d88c803e26799193db42e47f6e1e28eeb0322e4d",
+        "version": "0.8.27"
+      },
+      "Enzyme_jll": {
+        "git_revision": "",
+        "tree_hash": "5464e555af2b36b35ac10ceda173b35a5eee63ef",
+        "version": "0.0.307+0"
+      },
+      "GPUArraysCore": {
+        "git_revision": "",
+        "tree_hash": "0b2b3e8b8fb7c1f5ddbf498be2eb2b3b37c9c0ed",
+        "version": "0.2.1"
+      },
+      "InteractiveUtils": {
+        "git_revision": "",
+        "tree_hash": "",
+        "version": "1.11.0"
+      },
+      "JLD2": {
+        "git_revision": "",
+        "tree_hash": "9ce2e7c49ae4a7035b7d60db3a553b1f6c16875d",
+        "version": "0.6.7"
+      },
+      "JSON": {
+        "git_revision": "",
+        "tree_hash": "06d90f699285d055e34f0b014636a75a17ff2252",
+        "version": "1.13.4"
+      },
+      "Oceananigans": {
+        "git_revision": "",
+        "tree_hash": "39191502f01f3fc58abd09e7f1f97315a3be740e",
+        "version": "0.116.1"
+      },
+      "Pkg": {
+        "git_revision": "",
+        "tree_hash": "",
+        "version": "1.12.1"
+      },
+      "Printf": {
+        "git_revision": "",
+        "tree_hash": "",
+        "version": "1.11.0"
+      },
+      "Random": {
+        "git_revision": "",
+        "tree_hash": "",
+        "version": "1.11.0"
+      },
+      "Reactant": {
+        "git_revision": "",
+        "tree_hash": "40fa851949b2b8d7884cbace6a6a401c88b21b29",
+        "version": "0.2.308"
+      },
+      "ReactantCore": {
+        "git_revision": "",
+        "tree_hash": "1fe4e616752a0c4818ae88a504fc59b0fb016659",
+        "version": "0.1.26"
+      },
+      "Reactant_jll": {
+        "git_revision": "",
+        "tree_hash": "13ca059626d979ebeb114147cd1c1bc0adffc109",
+        "version": "0.0.443+0"
+      },
+      "Statistics": {
+        "git_revision": "",
+        "tree_hash": "e2b53ce13a53367e96601081e33d34746b571bad",
+        "version": "1.11.5"
+      },
+      "TOML": {
+        "git_revision": "",
+        "tree_hash": "",
+        "version": "1.0.3"
+      }
+    },
+    "perf_active": true,
+    "threads": 1,
+    "total_memory_bytes": 255094751232,
+    "versioninfo": "Julia Version 1.12.7\nCommit 6d172b025e4 (2026-08-15 08:05 UTC)\nBuild Info:\n  Official https://julialang.org release\nPlatform Info:\n  OS: Linux (aarch64-linux-gnu)\n  CPU: 144 × unknown\n  WORD_SIZE: 64\n  LLVM: libLLVM-18.1.7 (ORCJIT, neoverse-v2)\n  GC: Built with stock GC\nThreads: 1 default, 0 interactive, 1 GC (on 144 virtual cores)\nEnvironment:\n  JULIA_PROJECT = /opt/channelanigans\n  JULIA_PKG_OFFLINE = true\n  JULIA_PATH = /usr/local/julia\n  JULIA_GPG = 64B779A570972FFF7BFC2B54EAD471E1A1F2C10A\n  LD_LIBRARY_PATH = /.singularity.d/libs\n  JULIA_VERSION = 1.12.7\n  JULIA_PKG_PRECOMPILE_AUTO = 0\n  JULIA_DEPOT_PATH = /tmp/channelanigans_depot_1132220:/opt/julia_depot\n  JULIA_NUM_THREADS = 1\n"
+  },
+  "enzyme_options": {
+    "checkpointing": "revolve",
+    "looseTypeAnalysis": true,
+    "snaps": 5,
+    "strictAliasing": false
+  },
+  "flops_per_call": 2.5315577541225e11,
+  "flops_stats": {
+    "ci95": [
+      2.5313143748319025e11,
+      2.5318011334130975e11
+    ],
+    "ci95_halfwidth": 2.4337929059746005e7,
+    "max": 2.53172913313e11,
+    "mean": 2.5315577541225e11,
+    "median": 2.531551636555e11,
+    "min": 2.53139861025e11,
+    "n": 4,
+    "std": 1.5297252708828414e7,
+    "values": [
+      2.53139861025e11,
+      2.5314638032e11,
+      2.53172913313e11,
+      2.53163946991e11
+    ]
+  },
+  "gradients": {
+    "dDz": {
+      "l2": 0.04578720872829328,
+      "maxabs": 0.04570044436428437,
+      "nonfinite": 0,
+      "size": [
+        1,
+        32
+      ],
+      "sum": 0.051186710445735875
+    },
+    "dS": {
+      "l2": 0.5610489922661023,
+      "maxabs": 0.007530535576555225,
+      "nonfinite": 0,
+      "size": [
+        80,
+        160,
+        32
+      ],
+      "sum": 5.28731983315884e-15
+    },
+    "dT": {
+      "l2": 0.120122027850114,
+      "maxabs": 0.0016123069760078015,
+      "nonfinite": 0,
+      "size": [
+        80,
+        160,
+        32
+      ],
+      "sum": 7.81921099293002e-16
+    },
+    "dT_flux": {
+      "l2": 1.0905786604674748,
+      "maxabs": 0.025270100884952042,
+      "nonfinite": 0,
+      "size": [
+        80,
+        160,
+        1
+      ],
+      "sum": 0.007593750189868391
+    },
+    "du_wind_stress": {
+      "l2": 52.80482225621064,
+      "maxabs": 2.749288420527926,
+      "nonfinite": 0,
+      "size": [
+        80,
+        160,
+        1
+      ],
+      "sum": -4290.77877693413
+    },
+    "dv_wind_stress": {
+      "l2": 28.66275680014403,
+      "maxabs": 2.510127177006066,
+      "nonfinite": 0,
+      "size": [
+        80,
+        161,
+        1
+      ],
+      "sum": 781.7431349543218
+    }
+  },
+  "memory_method": "linux_vmhwm",
+  "nsteps": 32,
+  "objective": 0.6776874518369782,
+  "objectives_consistent": true,
+  "peak_rss_bytes": 6.291226624e9,
+  "peak_rss_stats": {
+    "ci95": [
+      6.284492130937254e9,
+      6.297961117062746e9
+    ],
+    "ci95_halfwidth": 6.734493062745629e6,
+    "max": 6.2963712e9,
+    "mean": 6.291226624e9,
+    "median": 6.29112832e9,
+    "min": 6.286278656e9,
+    "n": 4,
+    "std": 4.232868046980282e6,
+    "values": [
+      6.286278656e9,
+      6.289948672e9,
+      6.292307968e9,
+      6.2963712e9
+    ]
+  },
+  "perf": {
+    "attribution": "ok",
+    "events": "r80C0,r80C1",
+    "interval_ms": 100,
+    "n_measured": 4,
+    "n_windows": 4,
+    "totals_all_windows": {
+      "r80C0": 555173760,
+      "r80C1": 1012067927889
+    }
+  },
+  "protocol": {
+    "n_measured": 4,
+    "repeat_budget_s": null,
+    "repeats": 4,
+    "statistic": "mean ± 95% Student-t CI",
+    "warmup": 1
+  },
+  "runtime_ci95_halfwidth_s": 0.4990152785584125,
+  "runtime_s": 236.806240149,
+  "runtime_stats": {
+    "ci95": [
+      236.3072248704416,
+      237.3052554275584
+    ],
+    "ci95_halfwidth": 0.4990152785584125,
+    "max": 237.125693608,
+    "mean": 236.806240149,
+    "median": 236.7884598615,
+    "min": 236.522347265,
+    "n": 4,
+    "std": 0.31364882373250313,
+    "values": [
+      236.522347265,
+      236.551976464,
+      237.024943259,
+      237.125693608
+    ]
+  },
+  "seed": 1234
+}

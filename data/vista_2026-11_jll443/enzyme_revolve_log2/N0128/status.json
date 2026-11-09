@@ -1,0 +1,77 @@
+{
+  "batches": [
+    {
+      "batch": 1,
+      "compile_s": null,
+      "delta_rss_bytes_mean": 2.331574272e9,
+      "elapsed_s": 5704.5850949287415,
+      "flops_mean": 1.10537361963475e12,
+      "hostname": "i614-122.vista.tacc.utexas.edu",
+      "n_measured": 4,
+      "objective": 2.4949330033345047,
+      "peak_rss_bytes_mean": 6.496256e9,
+      "perf_attribution": "ok",
+      "reason": "",
+      "slurm_job_id": "1132200",
+      "status": "ok",
+      "wall_s_mean": 1094.40581677475
+    },
+    {
+      "batch": 2,
+      "compile_s": null,
+      "delta_rss_bytes_mean": 2.310422528e9,
+      "elapsed_s": 5712.586627006531,
+      "flops_mean": 1.10429483816825e12,
+      "hostname": "i615-081.vista.tacc.utexas.edu",
+      "n_measured": 4,
+      "objective": 2.4949330033345047,
+      "peak_rss_bytes_mean": 6.5028096e9,
+      "perf_attribution": "ok",
+      "reason": "",
+      "slurm_job_id": "1132309",
+      "status": "ok",
+      "wall_s_mean": 1096.6197905815
+    },
+    {
+      "batch": 3,
+      "compile_s": null,
+      "delta_rss_bytes_mean": 2.279374848e9,
+      "elapsed_s": 5701.558197975159,
+      "flops_mean": 1.104817015177e12,
+      "hostname": "i617-064.vista.tacc.utexas.edu",
+      "n_measured": 4,
+      "objective": 2.4949330033345047,
+      "peak_rss_bytes_mean": 6.467239936e9,
+      "perf_attribution": "ok",
+      "reason": "",
+      "slurm_job_id": "1132449",
+      "status": "ok",
+      "wall_s_mean": 1094.31893837925
+    }
+  ],
+  "command": "`numactl -C 0 perf stat -x, -I 100 -o /results/table_jll443_b1/enzyme_revolve_log2/N0128/perf.csv --delay=-1 -e r80C0,r80C1 --control fifo:/tmp/jl_CDKf4HAluT.perf_ctl,/tmp/jl_Q7qBoRsj41.perf_ack -- /usr/local/julia/bin/julia -C native -J/usr/local/julia/lib/julia/sys.so -g1 -O0 --project=/opt/channelanigans /opt/channelanigans/bench/driver_enzyme.jl --config enzyme_revolve_log2 --nsteps 128 --out /results/table_jll443_b1 --configs-file /opt/channelanigans/bench/configs.toml --save-gradients --repeats 4`",
+  "config": "enzyme_revolve_log2",
+  "elapsed_s": 17118.72991991043,
+  "exitcode": 0,
+  "finished_at": "2026-11-09T14:15:08.389",
+  "julia_flags": "-O0",
+  "nsteps": 128,
+  "numactl": true,
+  "perf": {
+    "attribution": "ok",
+    "events": "r80C0,r80C1",
+    "interval_ms": 100,
+    "n_measured": 4,
+    "n_windows": 4,
+    "totals_all_windows": {
+      "r80C0": 2200401246,
+      "r80C1": 4419294077293
+    }
+  },
+  "reason": "",
+  "status": "ok",
+  "termsignal": 0,
+  "threads": 1,
+  "timeout_s": 9000.0,
+  "xla_flags": "--xla_cpu_multi_thread_eigen=false --xla_backend_extra_options=xla_cpu_use_multi_output_fusion"
+}

@@ -1,0 +1,45 @@
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+Events enabled
+Events disabled
+┌ Info: Reactant config
+│   config = "reactant_mincut_off"
+│   nsteps = 32
+│   optimize = true
+│   mincut = false
+│   checkpointing = false
+└   first_step_init = true
+┌ Info: Built HydrostaticFreeSurfaceModel{ReactantState, ImmersedBoundaryGrid}(time = 0 seconds, iteration = ConcretePJRTNumber(0))
+│ ├── grid: 80×160×32 ImmersedBoundaryGrid{Float64, Periodic, Bounded, Bounded} on ReactantState with 4×4×4 halo
+│ ├── timestepper: QuasiAdamsBashforth2TimeStepper
+│ ├── tracers: (T, S, e)
+│ ├── closure: Tuple with 3 closures:
+│ │   ├── HorizontalScalarDiffusivity{ExplicitTimeDiscretization}(ν=500.0, κ=(T=5.0e-5, S=5.0e-5, e=5.0e-5))
+│ │   ├── VerticalScalarDiffusivity{ExplicitTimeDiscretization}(ν=0.003, κ=(T=80×160×32 Field{Center, Center, Center} on ImmersedBoundaryGrid on ReactantState, S=80×160×32 Field{Center, Center, Center} on ImmersedBoundaryGrid on ReactantState, e=80×160×32 Field{Center, Center, Center} on ImmersedBoundaryGrid on ReactantState))
+│ │   └── ScalarBiharmonicDiffusivity{HorizontalFormulation}(ν=1.0e11, κ=nothing)
+│ ├── buoyancy: SeawaterBuoyancy with g=9.80665 and LinearEquationOfState(thermal_expansion=0.000167, haline_contraction=0.00078) with ĝ = NegativeZDirection()
+│ ├── free surface: SplitExplicitFreeSurface with gravitational acceleration 9.80665 m s⁻²
+│ │   └── substepping: FixedSubstepNumber(7)
+│ ├── advection scheme: 
+│ │   ├── momentum: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ │   ├── T: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ │   ├── S: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ │   └── e: WENO{2, Float64, Oceananigans.Utils.ConvertingDivision{Float32}}(order=3)
+│ ├── vertical_coordinate: ZCoordinate
+└ └── coriolis: BetaPlane{Oceananigans.Advection.EnstrophyConserving{Float64}, Float64}
+[ Info: Compiling...
+[ Info: compile time 99.05 s
+[ Info: Reference call (warmup 1/1)
+[ Info: measured call: wall 49.349 s, peak RSS 91.219 GiB (delta 86.555 GiB) [linux_vmhwm]
+[ Info: saved gradients to /results/table_jll443_b2/reactant_mincut_off/N0032/gradients.jld2
+[ Info: Measuring 4 call(s) (last warmup took 49.35 s)
+[ Info: measured call: wall 49.272 s, peak RSS 91.192 GiB (delta 86.490 GiB) [linux_vmhwm]
+[ Info: measured call: wall 49.303 s, peak RSS 91.197 GiB (delta 86.493 GiB) [linux_vmhwm]
+[ Info: measured call: wall 49.325 s, peak RSS 91.202 GiB (delta 86.498 GiB) [linux_vmhwm]
+[ Info: measured call: wall 49.328 s, peak RSS 91.197 GiB (delta 86.493 GiB) [linux_vmhwm]
+[ Info: [reactant_mincut_off N=32] runtime 49.307 ± 0.041 s (95% CI, n=4), peak RSS 91.197 GiB, objective 6.776874518370e-01 → /results/table_jll443_b2/reactant_mincut_off/N0032/result.json

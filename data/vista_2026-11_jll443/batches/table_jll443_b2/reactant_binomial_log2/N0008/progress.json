@@ -1,0 +1,62 @@
+[
+  {
+    "base_rss_bytes": 4994629632,
+    "delta_rss_bytes": 4133486592,
+    "kind": "warmup",
+    "memory_method": "linux_vmhwm",
+    "objective": 0.14331238707407232,
+    "peak_rss_bytes": 9128116224,
+    "perf_counted": false,
+    "wall_s": 12.52143114,
+    "window_end_unix": 1.794255344083773e9,
+    "window_start_unix": 1.794255331562339e9
+  },
+  {
+    "base_rss_bytes": 5037162496,
+    "delta_rss_bytes": 4039114752,
+    "kind": "measured",
+    "memory_method": "linux_vmhwm",
+    "objective": 0.14331238707407232,
+    "peak_rss_bytes": 9076277248,
+    "perf_counted": true,
+    "wall_s": 11.287987573,
+    "window_end_unix": 1.794255363784807e9,
+    "window_start_unix": 1.794255352496817e9
+  },
+  {
+    "base_rss_bytes": 5037359104,
+    "delta_rss_bytes": 4048224256,
+    "kind": "measured",
+    "memory_method": "linux_vmhwm",
+    "objective": 0.14331238707407232,
+    "peak_rss_bytes": 9085583360,
+    "perf_counted": true,
+    "wall_s": 11.320630074,
+    "window_end_unix": 1.794255381034675e9,
+    "window_start_unix": 1.794255369714043e9
+  },
+  {
+    "base_rss_bytes": 5037621248,
+    "delta_rss_bytes": 4053008384,
+    "kind": "measured",
+    "memory_method": "linux_vmhwm",
+    "objective": 0.14331238707407232,
+    "peak_rss_bytes": 9090629632,
+    "perf_counted": true,
+    "wall_s": 11.219384262,
+    "window_end_unix": 1.794255398194776e9,
+    "window_start_unix": 1.794255386975389e9
+  },
+  {
+    "base_rss_bytes": 5038473216,
+    "delta_rss_bytes": 4048224256,
+    "kind": "measured",
+    "memory_method": "linux_vmhwm",
+    "objective": 0.14331238707407232,
+    "peak_rss_bytes": 9086697472,
+    "perf_counted": true,
+    "wall_s": 11.299087985,
+    "window_end_unix": 1.794255415434764e9,
+    "window_start_unix": 1.794255404135674e9
+  }
+]

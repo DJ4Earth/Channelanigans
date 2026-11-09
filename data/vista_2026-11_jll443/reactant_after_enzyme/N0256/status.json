@@ -1,0 +1,77 @@
+{
+  "batches": [
+    {
+      "batch": 1,
+      "compile_s": 101.273544364,
+      "delta_rss_bytes_mean": 4.0537587712e10,
+      "elapsed_s": 1621.6001012325287,
+      "flops_mean": 1.04797430429075e12,
+      "hostname": "i615-082.vista.tacc.utexas.edu",
+      "n_measured": 4,
+      "objective": 5.0287127530688185,
+      "peak_rss_bytes_mean": 4.563648512e10,
+      "perf_attribution": "ok",
+      "reason": "",
+      "slurm_job_id": "1132202",
+      "status": "ok",
+      "wall_s_mean": 277.9098062145
+    },
+    {
+      "batch": 2,
+      "compile_s": 101.904107136,
+      "delta_rss_bytes_mean": 4.05413888e10,
+      "elapsed_s": 1624.628702878952,
+      "flops_mean": 1.04797116515225e12,
+      "hostname": "i614-083.vista.tacc.utexas.edu",
+      "n_measured": 4,
+      "objective": 5.0287127530688185,
+      "peak_rss_bytes_mean": 4.5624573952e10,
+      "perf_attribution": "ok",
+      "reason": "",
+      "slurm_job_id": "1132311",
+      "status": "ok",
+      "wall_s_mean": 277.86476042950005
+    },
+    {
+      "batch": 3,
+      "compile_s": 108.130195893,
+      "delta_rss_bytes_mean": 4.0545681408e10,
+      "elapsed_s": 1639.6047050952911,
+      "flops_mean": 1.0479630667565e12,
+      "hostname": "i617-052.vista.tacc.utexas.edu",
+      "n_measured": 4,
+      "objective": 5.0287127530688185,
+      "peak_rss_bytes_mean": 4.5621641216e10,
+      "perf_attribution": "ok",
+      "reason": "",
+      "slurm_job_id": "1132465",
+      "status": "ok",
+      "wall_s_mean": 278.4518876405
+    }
+  ],
+  "command": "`numactl -C 0 perf stat -x, -I 100 -o /results/table_jll443_b1/reactant_after_enzyme/N0256/perf.csv --delay=-1 -e r80C0,r80C1 --control fifo:/tmp/jl_5e1wDK1yr2.perf_ctl,/tmp/jl_da9KR256BA.perf_ack -- /usr/local/julia/bin/julia -C native -J/usr/local/julia/lib/julia/sys.so -g1 -O0 --project=/opt/channelanigans /opt/channelanigans/bench/driver_reactant.jl --config reactant_after_enzyme --nsteps 256 --out /results/table_jll443_b1 --configs-file /opt/channelanigans/bench/configs.toml --save-gradients --repeats 4`",
+  "config": "reactant_after_enzyme",
+  "elapsed_s": 4885.833509206772,
+  "exitcode": 0,
+  "finished_at": "2026-11-09T13:07:07.920",
+  "julia_flags": "-O0",
+  "nsteps": 256,
+  "numactl": true,
+  "perf": {
+    "attribution": "ok",
+    "events": "r80C0,r80C1",
+    "interval_ms": 100,
+    "n_measured": 4,
+    "n_windows": 4,
+    "totals_all_windows": {
+      "r80C0": 0,
+      "r80C1": 4191897217163
+    }
+  },
+  "reason": "",
+  "status": "ok",
+  "termsignal": 0,
+  "threads": 1,
+  "timeout_s": 7200.0,
+  "xla_flags": "--xla_cpu_multi_thread_eigen=false --xla_backend_extra_options=xla_cpu_use_multi_output_fusion"
+}

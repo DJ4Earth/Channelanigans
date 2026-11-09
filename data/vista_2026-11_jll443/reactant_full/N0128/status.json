@@ -1,0 +1,77 @@
+{
+  "batches": [
+    {
+      "batch": 1,
+      "compile_s": 96.835957602,
+      "delta_rss_bytes_mean": 1.357324288e10,
+      "elapsed_s": 891.885735988617,
+      "flops_mean": 4.805260855705e11,
+      "hostname": "i617-074.vista.tacc.utexas.edu",
+      "n_measured": 4,
+      "objective": 2.494933003334412,
+      "peak_rss_bytes_mean": 1.8530287616e10,
+      "perf_attribution": "ok",
+      "reason": "",
+      "slurm_job_id": "1132208",
+      "status": "ok",
+      "wall_s_mean": 132.302926958
+    },
+    {
+      "batch": 2,
+      "compile_s": 96.069090676,
+      "delta_rss_bytes_mean": 1.356980224e10,
+      "elapsed_s": 891.8849260807037,
+      "flops_mean": 4.805112990405e11,
+      "hostname": "i618-094.vista.tacc.utexas.edu",
+      "n_measured": 4,
+      "objective": 2.494933003334412,
+      "peak_rss_bytes_mean": 1.8448334848e10,
+      "perf_attribution": "ok",
+      "reason": "",
+      "slurm_job_id": "1132317",
+      "status": "ok",
+      "wall_s_mean": 132.2857799085
+    },
+    {
+      "batch": 3,
+      "compile_s": 101.403383292,
+      "delta_rss_bytes_mean": 1.3574488064e10,
+      "elapsed_s": 910.9028477668762,
+      "flops_mean": 4.8052565951975e11,
+      "hostname": "i617-053.vista.tacc.utexas.edu",
+      "n_measured": 4,
+      "objective": 2.494933003334412,
+      "peak_rss_bytes_mean": 1.8470731776e10,
+      "perf_attribution": "ok",
+      "reason": "",
+      "slurm_job_id": "1132471",
+      "status": "ok",
+      "wall_s_mean": 134.12899492000003
+    }
+  ],
+  "command": "`numactl -C 0 perf stat -x, -I 100 -o /results/table_jll443_b1/reactant_full/N0128/perf.csv --delay=-1 -e r80C0,r80C1 --control fifo:/tmp/jl_gfCBobUDO3.perf_ctl,/tmp/jl_UrgZ4jU7WP.perf_ack -- /usr/local/julia/bin/julia -C native -J/usr/local/julia/lib/julia/sys.so -g1 -O0 --project=/opt/channelanigans /opt/channelanigans/bench/driver_reactant.jl --config reactant_full --nsteps 128 --out /results/table_jll443_b1 --configs-file /opt/channelanigans/bench/configs.toml --save-gradients --repeats 4`",
+  "config": "reactant_full",
+  "elapsed_s": 2694.673509836197,
+  "exitcode": 0,
+  "finished_at": "2026-11-09T12:54:57.588",
+  "julia_flags": "-O0",
+  "nsteps": 128,
+  "numactl": true,
+  "perf": {
+    "attribution": "ok",
+    "events": "r80C0,r80C1",
+    "interval_ms": 100,
+    "n_measured": 4,
+    "n_windows": 4,
+    "totals_all_windows": {
+      "r80C0": 0,
+      "r80C1": 1922104342282
+    }
+  },
+  "reason": "",
+  "status": "ok",
+  "termsignal": 0,
+  "threads": 1,
+  "timeout_s": 3600.0,
+  "xla_flags": "--xla_cpu_multi_thread_eigen=false --xla_backend_extra_options=xla_cpu_use_multi_output_fusion"
+}
