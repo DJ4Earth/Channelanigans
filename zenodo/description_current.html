@@ -1,0 +1,59 @@
+<p>Container image and raw data behind the CPU automatic-differentiation (AD) cost
+table of the Channelanigans artifact, measured with <strong>current package
+versions</strong> (Julia 1.12.7, Reactant 0.2.304, Enzyme 0.13.216, Oceananigans
+0.116.1, Checkpointing.jl 0.13.0).</p>
+
+<p>The benchmark measures the cost of one reverse-mode gradient of an Oceananigans
+reentrant-channel ocean model (80×160×32 immersed-boundary grid, Float64, zonal
+transport objective) over N = 4, 8, 16, 32, 64, 128 and 256 time steps, for 9 AD
+configurations: Reactant/Enzyme-MLIR compiled through XLA with different optimization,
+min-cut and checkpointing options, and Enzyme (LLVM) without Reactant, with and without
+binomial checkpointing. Each case ran on one TACC Vista Grace-Grace (<code>gg</code>)
+node, pinned to one core: 1 warmup call, then 12 measured calls, each on a freshly
+built problem. Reported: wall-clock time per call, peak resident memory
+(<code>VmHWM</code>), and hardware-counted floating-point operations (Neoverse V2
+events <code>r80C0</code> + <code>r80C1</code>). 60 of 63 cases finished; 3 ran out of
+the node's 237 GiB.</p>
+
+<p>The table, per-case JSON records, CSV exports and full documentation are in the
+GitHub repository, <code>data/vista_2026-11/</code> (README.md there). This record
+holds what is too large for git, plus the software environment needed to rerun.</p>
+
+<p><strong>Files</strong></p>
+<ul>
+  <li><code>channelanigans-artifact_2026-11-cpu.docker.tar.gz</code>: the container
+  image (<code>linux/arm64</code>), <code>ghcr.io/jlk9/channelanigans-artifact:2026-11-cpu</code>,
+  digest <code>sha256:b9c94c1fbac86e8b7cdc709540fd97850f2069a61bbf480f5709b31b43676df0</code>,
+  built from repo commit <code>8fcc665</code>. Load with
+  <code>docker load -i &lt;file&gt;</code>; for Apptainer, <code>gunzip -k</code> it and
+  run <code>apptainer build channelanigans.sif docker-archive://&lt;file&gt;.tar</code>.
+  <code>image_inspect.json</code> is its <code>docker image inspect</code> record.</li>
+  <li><code>sif_sha256.txt</code>: SHA-256 of the Apptainer SIF (converted from this
+  image) that the Vista jobs ran.</li>
+  <li><code>vista_2026-11_raw_data.tar.gz</code>: every case folder
+  (<code>result.json</code>, <code>status.json</code>, <code>progress.json</code>,
+  <code>job_info.json</code>, <code>log.txt</code>, and <code>perf.csv</code>, the raw
+  100 ms hardware-counter intervals) and the CSV exports.</li>
+  <li><code>vista_2026-11_gradients.tar.gz</code>: the full gradient fields (JLD2) of
+  each case's reference call, for <code>bench/check_gradients.jl</code>.</li>
+  <li><code>vista_2026-11_superseded.tar.gz</code>: earlier attempts replaced by
+  reruns (for example <code>enzyme_naive</code> at N = 256 first run under
+  <code>perf</code>). Kept for transparency; not table entries.</li>
+  <li><code>slurm_logs_current.tar.gz</code>, <code>gate_current.tar.gz</code>: SLURM
+  logs of the sweep, and the pre-sweep gate (FLOP-counter validation against a
+  matrix multiply, end-to-end test).</li>
+  <li><code>Channelanigans-{{SNAPSHOT_COMMIT}}.tar.gz</code>: the repository at commit
+  <code>{{SNAPSHOT_COMMIT}}</code> (code, SLURM scripts, committed data and READMEs).</li>
+  <li><code>SHA256SUMS</code>, <code>SHA256SUMS_vista</code>: checksums.</li>
+</ul>
+
+<p><strong>Reading the data.</strong> The ± values in the table are 95% Student-t
+confidence intervals over the 12 calls on one node. Runtimes also vary between Vista
+nodes, by about 6% to 20% for the same run in memory-heavy cases, and cases ran on
+whichever node was free; this spread is not in the intervals. Memory and FLOP counts
+agree across nodes to within 0.5%. All configurations agree with the reference
+configuration in objective and full gradient fields to within 1.9e-12 (relative).</p>
+
+<p><strong>Related.</strong> The same table measured with the July/August 2026
+package versions of the original runs, together with those original runs:
+<a href="https://doi.org/10.5072/zenodo.637537">10.5072/zenodo.637537</a>.</p>

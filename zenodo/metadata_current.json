@@ -1,0 +1,41 @@
+{
+  "upload_type": "dataset",
+  "title": "Channelanigans CPU AD cost benchmarks: container image and raw data (current package versions, TACC Vista, November 2026)",
+  "creators": [
+    {
+      "name": "Kump, Joseph",
+      "orcid": "0000-0003-4375-4833"
+    }
+  ],
+  "access_right": "open",
+  "license": "cc-by-4.0",
+  "version": "2026-11",
+  "keywords": [
+    "automatic differentiation",
+    "Reactant.jl",
+    "Enzyme",
+    "MLIR",
+    "XLA",
+    "Oceananigans.jl",
+    "checkpointing",
+    "ocean model",
+    "benchmark",
+    "NVIDIA Grace",
+    "container image"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/DJ4Earth/Channelanigans",
+      "relation": "isSupplementTo",
+      "resource_type": "software",
+      "scheme": "url"
+    },
+    {
+      "identifier": "10.5072/zenodo.637537",
+      "relation": "isRelatedTo",
+      "resource_type": "dataset",
+      "scheme": "doi"
+    }
+  ],
+  "notes": "The container image bundles third-party software (Julia and Julia packages, LLVM, XLA, Debian packages) under their own licences; CC-BY-4.0 applies to the benchmark data and documentation."
+}
