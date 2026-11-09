@@ -72,11 +72,12 @@ case $CH_PROFILE in
     jll443)    # `current` with Reactant 0.2.308 (Reactant_jll 0.0.443) and Enzyme 0.13.219 (envs/jll443)
         # Same runtime settings as `current` (orchestrator defaults: -O0, multi-threaded
         # Eigen off). Run in batches of 4 measured calls (see "Batches" below).
-        # TODO after the image is built and pulled: SIF sha256, IMAGE_DIGEST, IMAGE_COMMIT.
+        # Image built 2026-11-09 from commit 3f6c63d (arm64), pulled by digest.
+        # SIF sha256: TODO (sha256sum of the pulled SIF).
         SIF=/work/08955/jlk3675/vista/channelanigans-2026-11-jll443-cpu.sif
         IMAGE_REF=ghcr.io/jlk9/channelanigans-artifact:2026-11-jll443-cpu
-        IMAGE_DIGEST=sha256:TODO
-        IMAGE_COMMIT=TODO
+        IMAGE_DIGEST=sha256:bc5ed0f2d08f3c234360fbd31ff66924ddba22d9231a9fe33c8187412b688d6b
+        IMAGE_COMMIT=3f6c63da496e9bcdb5acf77948578a963ccbd711
         SWEEP=table_jll443
         TABLE_CONFIGS=table
         JOB_PREFIX=ch-j443
