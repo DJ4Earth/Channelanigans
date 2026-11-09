@@ -69,7 +69,7 @@ case $CH_PROFILE in
         RUN_XLA_FLAGS="--xla_backend_extra_options=xla_cpu_use_multi_output_fusion"
         XLA_DUMP=1
         ;;
-    jll443)    # current versions, but Reactant from main with Reactant_jll 0.0.443 (envs/jll443)
+    jll443)    # `current` with Reactant 0.2.308 (Reactant_jll 0.0.443) and Enzyme 0.13.219 (envs/jll443)
         # Same runtime settings as `current` (orchestrator defaults: -O0, multi-threaded
         # Eigen off). Run in batches of 4 measured calls (see "Batches" below).
         # TODO after the image is built and pulled: SIF sha256, IMAGE_DIGEST, IMAGE_COMMIT.

@@ -19,7 +19,7 @@ call. The image settings are in [`env.sh`](env.sh).
 |---|---|---|---|
 | `current` (default) | current package versions (Julia 1.12.7, Reactant 0.2.304) | `table/` | all 9 in `bench/configs.toml` |
 | `aug2026` | the July/August 2026 environment of the original runs ([`envs/aug2026`](../../envs/aug2026/)) | `table_aug2026/` | the original 8 (no Revolve) |
-| `jll443` | current versions, but Reactant from `main` with Reactant_jll 0.0.443 ([`envs/jll443`](../../envs/jll443/)); runs in batches | `table_jll443_b1/`, `_b2/`, … pooled into `table_jll443/` | all 9 |
+| `jll443` | current versions, except Reactant 0.2.308 (Reactant_jll 0.0.443) and Enzyme 0.13.219 ([`envs/jll443`](../../envs/jll443/)); runs in batches | `table_jll443_b1/`, `_b2/`, … pooled into `table_jll443/` | all 9 |
 
 Each profile gets its own job names (`ch-…` and `ch-aug-…`), so the two sweeps never
 skip or collide with each other's jobs. For `aug2026`, the walltimes for every case
