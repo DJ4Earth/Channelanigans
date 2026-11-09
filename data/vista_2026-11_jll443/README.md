@@ -7,13 +7,10 @@ N = 4, 8, 16, 32, 64, 128 and 256 timesteps. Only Reactant, its XLA/MLIR binary
 (`Reactant_jll`) and Enzyme changed; the model, the configurations, the hardware
 and the measurement are the same.
 
-> **Status (2026-11-09): complete except one case.** All 63 cases are in: 60
-> finished (`ok`) and 3 ran out of the node's memory (`m`), the same three as in
-> 2026-11 (`reactant_mincut_off` at N = 128 and 256, `enzyme_naive` at N = 256).
-> Every finished case has 12 measured calls from 3 batches on different nodes,
-> **except `enzyme_revolve_log2` at N = 256, which has 4 calls from one batch so
-> far** (its other two batches were still running when this folder was copied).
-> Mark that cell in any table built from this folder.
+> **Status (2026-11-09): complete.** All 63 cases are in: 60 finished (`ok`) and 3
+> ran out of the node's memory (`m`), the same three as in 2026-11
+> (`reactant_mincut_off` at N = 128 and 256, `enzyme_naive` at N = 256). Every
+> finished case has 12 measured calls from 3 batches on different nodes.
 
 ## What changed from `vista_2026-11`
 
@@ -78,7 +75,7 @@ behave as before. Ratios are this folder ÷ `vista_2026-11`, over N = 8 to 256:
   measured calls of the 3 batches are pooled, and the table reports mean ± 95%
   Student-t confidence interval over the pool. In 2026-11 the 12 calls came from
   one process on one node.
-  - In all, 181 batch jobs ran on 46 different nodes. Each batch's node, job and
+  - In all, 183 batch jobs ran on 46 different nodes. Each batch's node, job and
     means are in `export/batches.csv`.
   - Because the batches ran on different nodes, the confidence intervals include
     node-to-node variation. This is intended: it reflects what a user of the
@@ -147,8 +144,6 @@ complete archive, `raw_data.tar.gz`, is on Vista in
   In both, the slow batch was consistently slow on all its calls and executed the
   same number of FLOPs, so the node, not the computation, was slower. Their wide
   confidence intervals (±2.62 s and ±7.59 s) are this spread.
-- **`enzyme_revolve_log2` at N = 256** has 4 calls from one node (see Status), so
-  its interval (±0.29 s) does not yet include node-to-node variation.
 - **N = 4:** several Reactant configurations use more memory at N = 4 than at N = 8,
   as in 2026-11; it is a property of the compiled program at very short loops.
 
